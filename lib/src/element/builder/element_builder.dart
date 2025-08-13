@@ -1,5 +1,4 @@
 import 'package:analyzer/dart/ast/ast.dart';
-
 import 'package:analyzer/dart/ast/token.dart' show Keyword, Token;
 import 'package:analyzer/dart/ast/visitor.dart' show UnifyingAstVisitor;
 import 'package:lean_builder/src/element/builder/element_stack.dart';
@@ -452,7 +451,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
     if (typeAnno is NamedType) {
       if (enclosingEle is TypeParameterizedElementMixin) {
         for (final TypeParameterType typeParam in enclosingEle.allTypeParameters) {
-          if (typeParam.name == typeAnno.name2.lexeme) {
+          if (typeParam.name == typeAnno.name.lexeme) {
             return typeParam.withNullability(typeAnno.question != null);
           }
         }
@@ -517,7 +516,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
 
   /// Resolves a named type reference in the context of the given enclosing element.
   DartType resolveNamedType(NamedType annotation, Element enclosingEle) {
-    final String typename = annotation.name2.lexeme;
+    final String typename = annotation.name.lexeme;
     if (typename == DartType.voidType.name) return DartType.voidType;
     if (typename == DartType.dynamicType.name) return DartType.dynamicType;
     if (typename == DartType.neverType.name) return DartType.neverType;
@@ -915,7 +914,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
         final NamedType superType = clazzNode.extendsClause!.superclass;
         return _resolveSuperParam(
           ref: IdentifierRef(
-            superType.name2.lexeme,
+            superType.name.lexeme,
             importPrefix: superType.importPrefix?.name.lexeme,
           ),
           library: lib,
@@ -1157,7 +1156,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
       final NamedType redType = redirectedConstructor.type;
       final IdentifierRef identifierRef = resolver.resolveIdentifier(interfaceElement.library, <String>[
         if (redType.importPrefix != null) redType.importPrefix!.name.lexeme,
-        redType.name2.lexeme,
+        redType.name.lexeme,
       ]);
 
       final DeclarationRef? declarationRef = resolver.getDeclarationRef(
