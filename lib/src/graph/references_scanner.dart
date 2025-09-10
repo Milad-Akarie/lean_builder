@@ -104,15 +104,15 @@ class ReferencesScanner {
             case Keyword.PART:
               final (
                 fasta.Token? nextT,
-                DirectiveStatement? direcitve,
+                DirectiveStatement? directive,
               ) = _tryParseDirective(
                 type,
                 nextToken,
                 asset,
               );
               nextToken = nextT ?? nextToken;
-              if (direcitve != null) {
-                results.addDirective(asset, direcitve);
+              if (directive != null) {
+                results.addDirective(asset, directive);
               }
               break;
             case Keyword.TYPEDEF:
