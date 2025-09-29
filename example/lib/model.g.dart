@@ -12,9 +12,8 @@ Person _$PersonFromJson(Map<String, dynamic> json) => Person(
   json['age'] as int,
   Address.fromJson(json['address'] as Map<String, dynamic>),
   (json['hobbies'] as List<dynamic>).cast<String>(),
-); // comment goes here
+);
 
-Address _$AddressFromJson(Map<String, dynamic> json) => Address(
-  json['street'] as String,
-  json['city'] as String,
-); // comment goes here
+Address _$AddressFromJson(Map<String, dynamic> json) =>
+    Address(json['street'] as String, json['city'] as String);
+

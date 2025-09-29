@@ -1,3 +1,5 @@
+## 0.1.2
+- chore: update analyzer packages to a compatible version range
 ## 0.1.1
 - chore: update dependencies
 ## 0.1.0+1
