@@ -22,8 +22,8 @@ environment:
 
 # Add regular dependencies here.
 dependencies:
-  _fe_analyzer_shared: ^88.0.0
-  analyzer: ">=7.4.0 <9.0.0"
+  _fe_analyzer_shared: ^91.0.0
+  analyzer: ^8.4.1
   args: ^2.7.0
   xxh3: ^1.2.0
   path: ^1.9.1
