@@ -353,7 +353,7 @@ abstract class _TypeCheckerImpl extends TypeChecker {
     if (_resolvedTypesCache.containsKey(reqId)) {
       return _resolvedTypesCache[reqId]!;
     }
-    final String typename = superType.name2.lexeme;
+    final String typename = superType.name.lexeme;
     final ImportPrefixReference? importPrefix = superType.importPrefix;
     final DeclarationRef? identifierLocation = importingLib.resolver.getDeclarationRef(
       typename,

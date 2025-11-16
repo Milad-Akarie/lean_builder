@@ -63,7 +63,7 @@ class ConstantEvaluator extends GeneralizingAstVisitor<Constant> with ElementSta
       final NamedType redType = redirectConstructor.type;
       final IdentifierRef identifierRef = _resolver.resolveIdentifier(_library, <String>[
         if (redType.importPrefix != null) redType.importPrefix!.name.lexeme,
-        redType.name2.lexeme,
+        redType.name.lexeme,
       ]);
       final (
         LibraryElementImpl redirectLib,

@@ -155,7 +155,7 @@ class DirectivesBuilder extends ElementBuilder {
 
   @override
   void visitLibraryDirective(LibraryDirective node) {
-    final String? name = node.name2?.name;
+    final String? name = node.name?.name;
     if (name == null) return;
     final LibraryElementImpl library = currentLibrary();
     final List<dynamic>? asset = resolver.graph.assets[library.src.id];
@@ -172,8 +172,8 @@ class DirectivesBuilder extends ElementBuilder {
 
     setCodeRange(element, node);
     element.setNameRange(
-      node.name2?.offset ?? node.offset,
-      node.name2?.length ?? node.length,
+      node.name?.offset ?? node.offset,
+      node.name?.length ?? node.length,
     );
 
     visitElementScoped(element, () {

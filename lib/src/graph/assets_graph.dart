@@ -785,7 +785,7 @@ class IdentifierRef {
   /// {@endtemplate}
   factory IdentifierRef.fromType(NamedType type) {
     return IdentifierRef(
-      type.name2.lexeme,
+      type.name.lexeme,
       importPrefix: type.importPrefix?.name.lexeme,
     );
   }
