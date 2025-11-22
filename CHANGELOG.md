@@ -1,3 +1,11 @@
+## 0.1.3
+- fix: a couple windows related path issues
+- fix: correctly resolve relative asset imports
+- fix: URI handling for directories with spaces in their paths
+- fix: stop canonicalizing paths from `package:` URIs
+- fix: update references from name2 to name in IdentifierRef and related classes
+- chore: downgrade meta package to version ^1.12.0 for compatibility
+
 ## 0.1.2
 - chore: update analyzer packages to a compatible version range
 ## 0.1.1
