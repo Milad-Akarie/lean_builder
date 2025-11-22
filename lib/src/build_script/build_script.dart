@@ -12,6 +12,7 @@ import 'package:lean_builder/src/logger.dart';
 import 'package:lean_builder/src/resolvers/resolver.dart';
 import 'package:lean_builder/src/type/type.dart';
 import 'package:lean_builder/src/type/type_checker.dart';
+import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p show relative, join, current, normalize, dirname;
 import 'compile.dart' as compile;
 import 'paths.dart' as paths;
@@ -318,7 +319,7 @@ BuilderDefinitionEntry _buildEntry(
 
   final List<RuntimeTypeRegisterEntry> typesToRegister = <RuntimeTypeRegisterEntry>[];
 
-  final String import = _resolveImport(asset.shortUri, uri: asset.uri)!;
+  final String import = resolveImport(asset.shortUri, uri: asset.uri)!;
   final Set<Constant>? annotationRefs = constObj.getSet('registerTypes')?.value;
   final Set<DartType> types = <DartType>{
     ...?annotationRefs?.whereType<ConstType>().map((ConstType e) => e.value),
@@ -338,7 +339,7 @@ BuilderDefinitionEntry _buildEntry(
     typesToRegister.add(
       RuntimeTypeRegisterEntry(
         type.name,
-        _resolveImport(typeImport),
+        resolveImport(typeImport),
         type.declarationRef.srcId,
       ),
     );
@@ -362,16 +363,27 @@ BuilderDefinitionEntry _buildEntry(
   return builderDef;
 }
 
-String? _resolveImport(Uri shortUri, {Uri? uri}) {
+/// Resolves the import path for a given URI.
+///
+/// Converts asset URIs to relative paths based on the build script location,
+/// and leaves package URIs unchanged.
+/// @param shortUri The URI to resolve
+/// @param uri Optional original URI for more accurate path resolution
+/// @return Resolved import path as a string, or null for core Dart libraries
+@visibleForTesting
+String? resolveImport(Uri shortUri, {Uri? uri}) {
   if (shortUri.scheme == 'dart' && shortUri.pathSegments.firstOrNull == 'core') {
     return null;
   }
   if (shortUri.scheme == 'asset') {
     final Uri targetUri = Uri.parse(p.join(p.current, paths.buildScriptOutput));
-    final base = p.dirname(targetUri.path);
-    return p.relative(p.normalize((uri ?? shortUri).path), from: base);
+    final base = p.normalize(p.dirname(targetUri.path));
+    final target = (uri ?? shortUri).path.replaceAll(RegExp(r'\\'), '/');
+    // remove optional leading backslash and drive letter (e.g. "\C:\...", "C:\...", or "C:/...")
+    final withoutDrive = p.normalize(target.replaceFirst(RegExp(r'^/?[A-Za-z]:/'), r'/'));
+    return p.relative(withoutDrive, from: base).replaceAll(RegExp(r'\\'), '/');
   } else {
-    // package import
+    // it's either a package import or a first-party dart library
     return shortUri.toString();
   }
 }
