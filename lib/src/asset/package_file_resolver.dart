@@ -4,7 +4,7 @@ import 'dart:typed_data' show Uint8List;
 
 import 'package:lean_builder/src/utils.dart';
 import 'package:meta/meta.dart' show visibleForTesting;
-import 'package:path/path.dart' as p show join, joinAll, dirname, normalize, canonicalize, current;
+import 'package:path/path.dart' as p show join, joinAll, dirname, normalize, current;
 import 'package:xxh3/xxh3.dart' show xxh3String;
 import 'asset.dart';
 import 'errors.dart';
