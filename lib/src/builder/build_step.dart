@@ -173,7 +173,9 @@ class BuildStepImpl implements BuildStep {
     } else {
       final Uri outputUri = asset.uriWithExtension(extension);
       _validateOutput(outputUri);
-      final Directory dir = Directory(p.dirname(outputUri.path));
+      final Directory dir = Directory.fromUri(
+        outputUri.replace(path: p.dirname(outputUri.path)),
+      );
       if (!dir.existsSync()) {
         dir.createSync(recursive: true);
       }

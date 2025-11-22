@@ -288,7 +288,7 @@ class PackageFileResolverImpl implements PackageFileResolver {
           absoluteUri = Directory.current.uri.resolve(
             packageUri.pathSegments.skip(1).join('/'),
           );
-          resolvedPath = absoluteUri.replace(path: p.canonicalize(absoluteUri.path)).toString();
+          resolvedPath = absoluteUri.toString();
         }
         packageToPath[name] = resolvedPath;
       }
