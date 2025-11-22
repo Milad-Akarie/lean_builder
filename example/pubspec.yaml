@@ -16,7 +16,7 @@ dev_dependencies:
   lints: ^6.0.0
   glob:
   lean_builder:
-    path: ../../lean_builder
+    path: ..
 
 
 
