@@ -12,7 +12,7 @@ import 'package:lean_builder/src/logger.dart';
 import 'package:lean_builder/src/resolvers/resolver.dart';
 import 'package:lean_builder/src/type/type.dart';
 import 'package:lean_builder/src/type/type_checker.dart';
-import 'package:path/path.dart' as p show relative, join, current;
+import 'package:path/path.dart' as p show relative, join, current, normalize, dirname;
 import 'compile.dart' as compile;
 import 'paths.dart' as paths;
 
@@ -317,7 +317,8 @@ BuilderDefinitionEntry _buildEntry(
   }
 
   final List<RuntimeTypeRegisterEntry> typesToRegister = <RuntimeTypeRegisterEntry>[];
-  final String import = _resolveImport(asset.shortUri)!;
+
+  final String import = _resolveImport(asset.shortUri, uri: asset.uri)!;
   final Set<Constant>? annotationRefs = constObj.getSet('registerTypes')?.value;
   final Set<DartType> types = <DartType>{
     ...?annotationRefs?.whereType<ConstType>().map((ConstType e) => e.value),
@@ -361,14 +362,16 @@ BuilderDefinitionEntry _buildEntry(
   return builderDef;
 }
 
-String? _resolveImport(Uri uri) {
-  if (uri.scheme == 'dart' && uri.pathSegments.firstOrNull == 'core') {
+String? _resolveImport(Uri shortUri, {Uri? uri}) {
+  if (shortUri.scheme == 'dart' && shortUri.pathSegments.firstOrNull == 'core') {
     return null;
   }
-  if (uri.scheme == 'asset') {
+  if (shortUri.scheme == 'asset') {
     final Uri targetUri = Uri.parse(p.join(p.current, paths.buildScriptOutput));
-    return p.relative(uri.path, from: targetUri.path);
+    final base = p.dirname(targetUri.path);
+    return p.relative(p.normalize((uri ?? shortUri).path), from: base);
   } else {
-    return uri.toString();
+    // package import
+    return shortUri.toString();
   }
 }
