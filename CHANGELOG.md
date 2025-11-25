@@ -1,3 +1,6 @@
+## 0.1.4
+- chore: update dependencies
+
 ## 0.1.3
 - fix: a couple windows related path issues
 - fix: correctly resolve relative asset imports
