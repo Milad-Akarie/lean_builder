@@ -214,6 +214,16 @@ abstract class Resolver {
   /// @return The URI for the asset
   /// {@endtemplate}
   Uri uriForAsset(String id);
+
+  /// {@template resolver.try_uri_for_asset}
+  /// Tries to get the URI for an asset by its ID.
+  ///
+  /// This attempts to convert an asset ID to its corresponding URI,
+  /// returning null if the asset cannot be found.
+  /// @param id The asset ID to get the URI for
+  /// @return The URI for the asset, or null if not found
+  /// {@endtemplate}
+  Uri? tryUriForAsset(String id);
 }
 
 /// {@template resolver_impl}
@@ -247,13 +257,6 @@ class ResolverImpl extends Resolver {
   /// {@endtemplate}
   late final TypeUtils typeUtils = TypeUtils(this);
 
-  /// {@template resolver_impl.registered_types_map}
-  /// Map of Dart types to their source IDs.
-  ///
-  /// This allows resolving types by their runtime Type object.
-  /// {@endtemplate}
-  final HashMap<Type, String> _registeredTypesMap = HashMap<Type, String>();
-
   /// {@template resolver_impl.library_cache}
   /// Cache of library elements by source ID.
   ///
@@ -261,13 +264,6 @@ class ResolverImpl extends Resolver {
   /// libraries that have already been processed.
   /// {@endtemplate}
   final HashMap<String, LibraryElementImpl> _libraryCache = HashMap<String, LibraryElementImpl>();
-
-  /// {@template resolver_impl.type_checkers_cache}
-  /// Cache of type checkers by type name and package.
-  ///
-  /// This improves performance by reusing type checkers for the same types.
-  /// {@endtemplate}
-  final HashMap<String, TypeChecker> _typeCheckersCache = HashMap<String, TypeChecker>();
 
   /// {@template resolver_impl.resolved_units_cache}
   /// Cache of resolved AST nodes by source and identifier.
@@ -291,6 +287,13 @@ class ResolverImpl extends Resolver {
   /// {@endtemplate}
   final SourceBasedCache<Constant> evaluatedConstantsCache = SourceBasedCache<Constant>();
 
+  /// {@template resolver_impl.registered_types_map}
+  /// Map of registered Dart Types to source IDs.
+  ///
+  /// This allows looking up types by their runtime Type object.
+  /// {@endtemplate}
+  final TypeCheckersCache typeCheckersCache = TypeCheckersCache();
+
   @override
   final PackageFileResolver fileResolver;
 
@@ -310,6 +313,7 @@ class ResolverImpl extends Resolver {
     _resolvedUnitsCache.invalidateForSource(src.id);
     _resolvedTypeRefs.invalidateForSource(src.id);
     evaluatedConstantsCache.invalidateForSource(src.id);
+    typeCheckersCache.invalidateCachesForSource(src.id);
   }
 
   /// {@template resolver_impl.invalidate_all_caches}
@@ -336,7 +340,7 @@ class ResolverImpl extends Resolver {
   /// @param srcId The source ID containing the type definition
   /// {@endtemplate}
   void registerTypeMap(Type type, String srcId) {
-    _registeredTypesMap[type] = srcId;
+    typeCheckersCache.registerTypeMap(type, srcId);
   }
 
   /// {@template resolver_impl.register_types_map}
@@ -347,7 +351,7 @@ class ResolverImpl extends Resolver {
   /// @param typeMaps Map of Type objects to their source IDs
   /// {@endtemplate}
   void registerTypesMap(Map<Type, String> typeMaps) {
-    _registeredTypesMap.addAll(typeMaps);
+    typeCheckersCache.registerTypesMap(typeMaps);
   }
 
   @override
@@ -370,12 +374,14 @@ class ResolverImpl extends Resolver {
   TypeChecker typeCheckerOf<T>() {
     assert(T != dynamic, 'T cannot be dynamic');
     final Type type = T;
-    if (_registeredTypesMap.containsKey(type)) {
-      final String srcId = _registeredTypesMap[type]!;
+    final registeredTypesMap = typeCheckersCache._registeredTypesMap;
+    if (registeredTypesMap.containsKey(type)) {
+      final String srcId = registeredTypesMap[type]!;
       final DeclarationRef? declarationRef = graph.lookupIdentifierByProvider(type.toString(), srcId);
       if (declarationRef == null) {
         throw Exception('Identifier ${type.toString()} not found in $srcId');
       }
+
       assert(declarationRef.type.representsInterfaceType, '$type does not refer to a named type');
       final InterfaceTypeImpl typeRef = InterfaceTypeImpl(declarationRef.identifier, declarationRef, this);
       return TypeChecker.fromTypeRef(typeRef);
@@ -385,14 +391,7 @@ class ResolverImpl extends Resolver {
 
   @override
   TypeChecker typeCheckerFor(String name, String packageImport) {
-    final String key = '$packageImport#$name';
-    if (_typeCheckersCache.containsKey(key)) {
-      return _typeCheckersCache[key]!;
-    }
-    final NamedDartType typeRef = getNamedType(name, packageImport);
-    final TypeChecker typeChecker = TypeChecker.fromTypeRef(typeRef);
-
-    return _typeCheckersCache[key] = typeChecker;
+    return TypeChecker.fromTypeRef(getNamedType(name, packageImport));
   }
 
   @override
@@ -775,6 +774,11 @@ class ResolverImpl extends Resolver {
       }
     }
   }
+
+  @override
+  Uri? tryUriForAsset(String id) {
+    return graph.uriForAssetOrNull(id);
+  }
 }
 
 /// {@template iterable_filter_ext}
@@ -797,5 +801,94 @@ extension IterableFilterExt<E> on Iterable<E> {
   Iterable<T> filterAs<T>([ElementPredicate<T>? predicate]) {
     if (predicate == null) return whereType<T>();
     return whereType<T>().where(predicate);
+  }
+}
+
+///  {@template resolver_impl.type_checkers_cache}
+///  Cache for type checkers and resolved types.
+///  This cache improves performance by storing type checkers
+///  and resolved types for quick access.
+///  {@endtemplate}
+abstract class TypeCheckersCache {
+  /// {@template resolver_impl.registered_types_map}
+  /// Map of Dart types to their source IDs.
+  ///
+  /// This allows resolving types by their runtime Type object.
+  /// {@endtemplate}
+  HashMap<Type, String> get _registeredTypesMap;
+
+  /// {@template resolver_impl.resolved_types_cache}
+  /// Cache of resolved interface types.
+  ///
+  /// This improves performance by caching resolved types.
+  /// {@endtemplate}
+  SourceBasedCache<InterfaceType> get resolvedTypesCache;
+
+  /// {@template resolver_impl.super_type_checks_cache}
+  /// Cache of supertype check results.
+  ///
+  /// This improves performance by caching the results of supertype checks.
+  /// {@endtemplate}
+  SourceBasedCache<(bool, NamedDartType?)> get superTypeChecksCache;
+
+  /// {@template resolver_impl.type_checkers_cache_constructor}
+  /// Creates a new instance of the TypeCheckersCache.
+  /// {@endtemplate}
+  ///
+  factory TypeCheckersCache() => _TypeCheckersCacheImpl();
+
+  /// {@template resolver_impl.invalidate_caches_for_source}
+  /// Invalidates caches for a specific source ID.
+  ///
+  /// This clears cached entries related to the given source.
+  ///  @param srcId The source ID to invalidate caches for
+  /// {@endtemplate}
+  void invalidateCachesForSource(String srcId);
+
+  /// {@template resolver_impl.register_type_map}
+  /// Registers a mapping from a Dart Type to a source ID.
+  ///
+  /// This allows the resolver to find the source file containing
+  /// a type referenced by its runtime Type object.
+  ///
+  /// @param type The Type object to register
+  /// @param srcId The source ID containing the type definition
+  /// {@endtemplate}
+  void registerTypeMap(Type type, String srcId);
+
+  /// {@template resolver_impl.register_types_map}
+  /// Registers multiple Type to source ID mappings.
+  ///
+  /// This is a batch version of registerTypeMap for efficiency.
+  ///
+  /// @param typeMaps Map of Type objects to their source IDs
+  /// {@endtemplate}
+  void registerTypesMap(Map<Type, String> typeMaps);
+}
+
+class _TypeCheckersCacheImpl implements TypeCheckersCache {
+  @override
+  final HashMap<Type, String> _registeredTypesMap = HashMap<Type, String>();
+
+  @override
+  final SourceBasedCache<InterfaceType> resolvedTypesCache = SourceBasedCache<InterfaceType>();
+
+  @override
+  final SourceBasedCache<(bool, NamedDartType?)> superTypeChecksCache = SourceBasedCache<(bool, NamedDartType?)>();
+
+  @override
+  void invalidateCachesForSource(String srcId) {
+    resolvedTypesCache.invalidateForSource(srcId);
+    superTypeChecksCache.invalidateForSource(srcId);
+  }
+
+  @override
+  void registerTypeMap(Type type, String srcId) {
+    _registeredTypesMap[type] = srcId;
+  }
+
+  @override
+  void registerTypesMap(Map<Type, String> typeMaps) {
+    _registeredTypesMap.addAll(typeMaps);
   }
 }

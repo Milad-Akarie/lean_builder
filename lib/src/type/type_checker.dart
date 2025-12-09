@@ -6,6 +6,7 @@ import 'package:lean_builder/src/graph/assets_graph.dart';
 import 'package:lean_builder/src/graph/declaration_ref.dart';
 import 'package:lean_builder/src/resolvers/errors.dart';
 import 'package:lean_builder/src/resolvers/resolver.dart';
+import 'package:lean_builder/src/resolvers/source_based_cache.dart';
 import 'package:lean_builder/src/type/type.dart';
 import 'package:xxh3/xxh3.dart' show xxh3String;
 
@@ -28,7 +29,7 @@ abstract class TypeChecker {
   /// {@macro type_checker_factory}
   ///
   /// This factory creates a checker based on a [NamedDartType] reference.
-  factory TypeChecker.fromTypeRef(NamedDartType type) = _RefTypeChecker;
+  const factory TypeChecker.fromTypeRef(NamedDartType type) = _RefTypeChecker;
 
   /// {@macro type_checker_factory}
   ///
@@ -40,7 +41,33 @@ abstract class TypeChecker {
   /// - `package:foo/bar.dart#Baz` 'Baz' should be a declared type inside 'package:foo/bar.dart'
   /// - 'dart:core/int.dart' 'int' should be a declared type inside 'dart:core/int.dart'
   /// - `dart:core#int` 'int' which will be normalized to `dart:core/int.dart`
-  factory TypeChecker.fromUrl(String url) = _UriTypeChecker;
+  const factory TypeChecker.fromUrl(String url) = _UriTypeChecker;
+
+  /// {@macro type_checker_factory}
+  ///
+  /// Creates a new [TypeChecker] using a runtime [Type] object (for example
+  /// `TypeChecker.typeNamed(Foo)`). This is useful when you have a concrete
+  /// `Type` at runtime and want to treat it as a static type reference. You
+  /// can optionally restrict the checker to types declared in a specific
+  /// package via [inPackage], or indicate that the type comes from the SDK
+  /// using [inSdk].
+  const factory TypeChecker.typeNamed(
+    Type type, {
+    String? inPackage,
+    bool? inSdk,
+  }) = _NameTypeChecker;
+
+  /// {@macro type_checker_factory}
+  ///
+  /// Creates a new [TypeChecker] that matches a type by its literal name.
+  /// For example, `TypeChecker.typeNameLiterally('List<int>')` will match
+  /// types with the name `List<int>`; use [inPackage] to restrict to a
+  /// specific package and [inSdk] to indicate SDK types.
+  const factory TypeChecker.typeNameLiterally(
+    String type, {
+    String? inPackage,
+    bool? inSdk,
+  }) = _LiteralNameTypeChecker;
 
   /// {@macro type_checker_factory}
   ///
@@ -171,7 +198,7 @@ abstract class TypeChecker {
 class _RefTypeChecker extends _TypeCheckerImpl {
   final NamedDartType _type;
 
-  _RefTypeChecker(this._type);
+  const _RefTypeChecker(this._type);
 
   @override
   String toString() => _type.name;
@@ -185,12 +212,54 @@ class _RefTypeChecker extends _TypeCheckerImpl {
   }
 }
 
-class _UriTypeChecker extends _TypeCheckerImpl {
-  final String name;
-  final Uri uri;
-  final String? srcId;
+class _LiteralNameTypeChecker extends _TypeCheckerImpl {
+  final String _typeName;
+  final String? inPackage;
+  final bool? inSdk;
 
-  factory _UriTypeChecker(String url) {
+  const _LiteralNameTypeChecker(this._typeName, {this.inPackage, this.inSdk});
+
+  @override
+  String toString() => inPackage == null ? _typeName : '$inPackage#$_typeName';
+
+  @override
+  bool isExactlyType(DartType typeRef) {
+    if (typeRef is NamedDartType) {
+      final ref = typeRef.declarationRef;
+      final uri = typeRef.resolver.tryUriForAsset(ref.srcId);
+      if (uri == null) return false;
+      if (typeRef.name != _typeName) return false;
+      if (inSdk == true) {
+        return uri.scheme == 'dart';
+      } else if (inPackage != null) {
+        return uri.scheme == 'package' && uri.pathSegments.first == inPackage;
+      } else {
+        return true;
+      }
+    }
+    return false;
+  }
+}
+
+/// Checks a runtime type name and optional package against a static type.
+class _NameTypeChecker extends _LiteralNameTypeChecker {
+  final Type _type;
+
+  @override
+  String get _typeName {
+    final name = _type.toString();
+    return name.contains('<') ? name.substring(0, name.indexOf('<')) : name;
+  }
+
+  const _NameTypeChecker(this._type, {super.inPackage, super.inSdk}) : super('');
+}
+
+class _UriTypeChecker extends _TypeCheckerImpl {
+  final String uri;
+
+  static final _cache = Expando<(String name, String? srcId)>();
+
+  (String, String?) _resolve(String url) {
     final List<String> parts = url.split('#');
     if (parts.length != 2) {
       throw ArgumentError(
@@ -208,14 +277,14 @@ class _UriTypeChecker extends _TypeCheckerImpl {
     if (libraryUrl.path.endsWith('.dart')) {
       srcId = xxh3String(Uint8List.fromList(libraryUrl.toString().codeUnits));
     }
-
-    return _UriTypeChecker._(typeName, libraryUrl, srcId);
+    return (typeName, srcId);
   }
 
-  _UriTypeChecker._(this.name, this.uri, this.srcId);
+  const _UriTypeChecker(this.uri);
 
   @override
   bool isExactlyType(DartType typeRef) {
+    final (name, srcId) = _cache[this] ??= _resolve(uri);
     if (typeRef is NamedDartType) {
       if (typeRef.name != name) {
         return false;
@@ -234,21 +303,18 @@ class _UriTypeChecker extends _TypeCheckerImpl {
 }
 
 abstract class _TypeCheckerImpl extends TypeChecker {
-  _TypeCheckerImpl() : super._();
-
-  final Map<String, InterfaceType> _resolvedTypesCache = <String, InterfaceType>{};
-
-  final Map<String, (bool, NamedDartType?)> _superTypeChecksCache = <String, (bool, NamedDartType?)>{};
+  const _TypeCheckerImpl() : super._();
 
   (bool, NamedDartType?) _checkSupertypesRecursively(
     NamedDartType typeToCheck,
     LibraryElement importingLib, {
     bool extendClauseOnly = false,
   }) {
-    final String reqId = '${typeToCheck.identifier}@${importingLib.src.id}';
+    final key = CompoundKey(importingLib.src.id, typeToCheck.identifier);
+    final superTypeChecksCache = importingLib.resolver.typeCheckersCache.superTypeChecksCache;
 
-    if (_superTypeChecksCache.containsKey(reqId)) {
-      return _superTypeChecksCache[reqId]!;
+    if (superTypeChecksCache.contains(key)) {
+      return superTypeChecksCache[key]!;
     }
 
     final IdentifierRef identifier = IdentifierRef(
@@ -277,7 +343,7 @@ abstract class _TypeCheckerImpl extends TypeChecker {
         final NamedType superType = unit.extendsClause!.superclass;
         final (bool match, InterfaceType? type) = check(superType);
         if (match) {
-          return _superTypeChecksCache[reqId] = (true, type);
+          return superTypeChecksCache[key] = (true, type);
         } else if (typesToSuperCheck.isNotEmpty) {
           return _checkSupertypesRecursively(
             typesToSuperCheck.keys.first,
@@ -285,21 +351,21 @@ abstract class _TypeCheckerImpl extends TypeChecker {
           );
         }
       }
-      return _superTypeChecksCache[reqId] = (false, null);
+      return superTypeChecksCache[key] = (false, null);
     }
 
     if (unit is ClassDeclaration) {
       final NamedType? superType = unit.extendsClause?.superclass;
       final (bool match, InterfaceType? type) = check(superType);
       if (match) {
-        return _superTypeChecksCache[reqId] = (true, type);
+        return superTypeChecksCache[key] = (true, type);
       }
       for (final NamedType interface in <NamedType>[
         ...?unit.implementsClause?.interfaces,
       ]) {
         final (bool match, InterfaceType? type) = check(interface);
         if (match) {
-          return _superTypeChecksCache[reqId] = (true, type);
+          return superTypeChecksCache[key] = (true, type);
         }
       }
       for (final NamedType mixin in <NamedType>[
@@ -307,7 +373,7 @@ abstract class _TypeCheckerImpl extends TypeChecker {
       ]) {
         final (bool match, InterfaceType? type) = check(mixin);
         if (match) {
-          return _superTypeChecksCache[reqId] = (true, type);
+          return superTypeChecksCache[key] = (true, type);
         }
       }
     } else if (unit is MixinDeclaration) {
@@ -316,7 +382,7 @@ abstract class _TypeCheckerImpl extends TypeChecker {
       ]) {
         final (bool match, InterfaceType? type) = check(interface);
         if (match) {
-          return _superTypeChecksCache[reqId] = (true, type);
+          return superTypeChecksCache[key] = (true, type);
         }
       }
     } else if (unit is EnumDeclaration) {
@@ -325,7 +391,7 @@ abstract class _TypeCheckerImpl extends TypeChecker {
       ]) {
         final (bool match, InterfaceType? type) = check(interface);
         if (match) {
-          return _superTypeChecksCache[reqId] = (true, type);
+          return superTypeChecksCache[key] = (true, type);
         }
       }
     } else {
@@ -338,21 +404,23 @@ abstract class _TypeCheckerImpl extends TypeChecker {
         entry.value,
       );
       if (match) {
-        return _superTypeChecksCache[reqId] = (true, type);
+        return superTypeChecksCache[key] = (true, type);
       }
     }
-    return _superTypeChecksCache[reqId] = (false, null);
+    return superTypeChecksCache[key] = (false, null);
   }
 
   InterfaceType _resolveType(
     NamedType superType,
     LibraryElementImpl importingLib,
   ) {
-    final String reqId = '$superType@${importingLib.src.id}';
+    final key = CompoundKey(importingLib.src.id, '$superType');
+    final resolvedTypesCache = importingLib.resolver.typeCheckersCache.resolvedTypesCache;
 
-    if (_resolvedTypesCache.containsKey(reqId)) {
-      return _resolvedTypesCache[reqId]!;
+    if (resolvedTypesCache.contains(key)) {
+      return resolvedTypesCache[key]!;
     }
+
     final String typename = superType.name.lexeme;
     final ImportPrefixReference? importPrefix = superType.importPrefix;
     final DeclarationRef? identifierLocation = importingLib.resolver.getDeclarationRef(
@@ -374,7 +442,7 @@ abstract class _TypeCheckerImpl extends TypeChecker {
       importingLib.resolver,
       isNullable: superType.question != null,
     );
-    return _resolvedTypesCache[reqId] = resolvedType;
+    return resolvedTypesCache.cacheKey(key, resolvedType);
   }
 
   @override
@@ -383,9 +451,9 @@ abstract class _TypeCheckerImpl extends TypeChecker {
   bool _isSupertypeOf(DartType typeRef, {bool extendClauseOnly = false}) {
     if (typeRef is InterfaceType) {
       final Asset? importingLibrary = typeRef.declarationRef.importingLibrary;
-      if (importingLibrary == null) return false;
+      final resolver = typeRef.resolver;
       final LibraryElementImpl importingLib = typeRef.resolver.libraryFor(
-        importingLibrary,
+        importingLibrary ?? resolver.fileResolver.assetForUri(typeRef.declarationRef.srcUri),
       );
       final (bool match, _) = _checkSupertypesRecursively(
         typeRef,

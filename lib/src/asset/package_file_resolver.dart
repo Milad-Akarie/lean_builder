@@ -384,13 +384,14 @@ class PackageFileResolverImpl implements PackageFileResolver {
   /// {@endtemplate}
   @visibleForTesting
   void registerAsset(Asset asset, {Asset? relativeTo}) {
-    final String reqId = '${asset.uri}@${relativeTo?.uri}';
+    final uri = asset.uri;
+    final String reqId = uri.hasScheme ? uri.toString() : '$uri@${relativeTo?.uri}';
     _assetCache[reqId] = asset;
   }
 
   @override
   Asset assetForUri(Uri uri, {Asset? relativeTo}) {
-    final String reqId = '$uri@${relativeTo?.uri}';
+    final String reqId = uri.hasScheme ? uri.toString() : '$uri@${relativeTo?.uri}';
     if (_assetCache.containsKey(reqId)) {
       return _assetCache[reqId]!;
     }

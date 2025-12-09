@@ -64,6 +64,16 @@ class SourceBasedCache<T> {
     return _cache[key.source]?[key.target];
   }
 
+  /// {@template source_based_cache.operator_brackets_equals}
+  /// Adds a value to the cache using a compound key.
+  ///
+  /// @param key The compound key for the value
+  /// @param value The value to cache
+  /// {@endtemplate}
+  void operator []=(CompoundKey key, T value) {
+    _cache.putIfAbsent(key.source, () => <String, T>{})[key.target] = value;
+  }
+
   /// {@template source_based_cache.put_if_absent}
   /// Adds a value to the cache for the given key if it doesn't already exist.
   ///
