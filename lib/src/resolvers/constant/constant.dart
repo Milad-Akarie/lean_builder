@@ -67,6 +67,9 @@ sealed class Constant {
   /// Whether this constant represents null.
   bool get isNull => this is ConstNull;
 
+  /// Whether this constant is a literal value.
+  bool get isLiteral => this is ConstLiteral<dynamic>;
+
   /// The literal Dart value represented by this constant.
   ///
   /// This provides access to the underlying Dart value when possible.
@@ -146,13 +149,16 @@ class ConstNull extends ConstLiteral<String> {
 /// Used when a constant expression refers to a type, such as in
 /// `const Type = String`.
 /// {@endtemplate}
-class ConstType extends ConstLiteral<DartType> {
+class ConstType extends Constant {
   /// {@template const_type.constructor}
   /// Creates a new type constant with the given type.
   ///
   /// @param value The Dart type this constant represents
   /// {@endtemplate}
-  ConstType(super.value);
+  ConstType(this.value);
+
+  /// The Dart type represented by this constant.
+  final DartType value;
 
   @override
   bool operator ==(Object other) =>
@@ -160,6 +166,9 @@ class ConstType extends ConstLiteral<DartType> {
 
   @override
   int get hashCode => value.hashCode;
+
+  @override
+  DartType? get literalValue => value;
 }
 
 /// {@template const_string}
@@ -290,12 +299,15 @@ class ConstBool extends ConstLiteral<bool> {
 /// Contains information about the enum type and the specific value,
 /// including its index within the enum declaration.
 /// {@endtemplate}
-class ConstEnumValue extends ConstLiteral<String> {
+class ConstEnumValue extends Constant {
   /// The index of this enum value within its enum declaration.
   final int index;
 
   /// The type of the enum that contains this value.
   final InterfaceType type;
+
+  /// The name of this enum value.
+  final String value;
 
   /// {@template const_enum_value.constructor}
   /// Creates a new enum value constant.
@@ -304,7 +316,7 @@ class ConstEnumValue extends ConstLiteral<String> {
   /// @param index The index of the enum value
   /// @param type The type of the enum
   /// {@endtemplate}
-  ConstEnumValue(super.value, this.index, this.type);
+  ConstEnumValue(this.value, this.index, this.type);
 
   @override
   Object get literalValue => '${type.name}.$value';
