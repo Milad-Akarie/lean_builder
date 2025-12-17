@@ -1,3 +1,7 @@
+## 0.1.5
+- feat: improve build performance and efficiency
+- fix: minor bug fixes and stability improvements
+
 ## 0.1.4
 - chore: update dependencies
 
