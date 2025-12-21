@@ -472,9 +472,9 @@ abstract class _TypeCheckerImpl extends TypeChecker {
         return typeRef;
       }
       final Asset? importingLibrary = typeRef.declarationRef.importingLibrary;
-      if (importingLibrary == null) return null;
+      final resolver = typeRef.resolver;
       final LibraryElementImpl importingLib = typeRef.resolver.libraryFor(
-        importingLibrary,
+        importingLibrary ?? resolver.fileResolver.assetForUri(typeRef.declarationRef.srcUri),
       );
       final (
         bool match,

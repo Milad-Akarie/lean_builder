@@ -1,11 +1,12 @@
+import 'package:lean_builder/src/graph/declaration_ref.dart';
 import 'package:lean_builder/src/graph/references_scanner.dart';
+import 'package:lean_builder/src/graph/scan_results.dart';
+import 'package:lean_builder/src/resolvers/resolver.dart';
 import 'package:lean_builder/src/test/scanner.dart';
+import 'package:lean_builder/src/type/type.dart';
+import 'package:lean_builder/src/type/type_checker.dart';
 import 'package:lean_builder/test.dart';
 import 'package:test/test.dart';
-import 'package:lean_builder/src/type/type_checker.dart';
-import 'package:lean_builder/src/resolvers/resolver.dart';
-import 'package:lean_builder/src/graph/declaration_ref.dart';
-import 'package:lean_builder/src/graph/scan_results.dart';
 
 DeclarationRef refFor(String name, String uri, ReferenceType type) {
   return DeclarationRef.from(name, uri, type);
@@ -21,6 +22,8 @@ final _typesAsset = StringAsset.withRawUri(
   import 'package:test_/types.dart';
   class C extends A {}
   class D extends C {}
+  class E implements B {}
+  class M with A {}
 ''',
   'package:test_/test.dart',
 );
@@ -29,10 +32,11 @@ class A {}
 
 void main() {
   late ResolverImpl resolver;
+  late ReferencesScanner scanner;
   setUp(() {
     final fileResolver = getTestFileResolver();
     final assetsGraph = AssetsGraph(fileResolver.packagesHash);
-    final scanner = ReferencesScanner(assetsGraph, fileResolver);
+    scanner = ReferencesScanner(assetsGraph, fileResolver);
     scanDartSdkAndPackages(scanner);
     scanner.scan(_typesAsset);
     scanner.scan(_importedTypesAsset);
@@ -127,6 +131,72 @@ void main() {
       final typeD = resolver.getNamedType('D', _typesAsset.shortUri.toString());
       final checker = TypeChecker.fromUrl('${_importedTypesAsset.shortUri}#A');
       expect(checker.isAssignableFromType(typeD), isTrue);
+    });
+  });
+
+  group('TypeChecker.isSupertypeOf', () {
+    test('returns true for superclass', () {
+      final typeC = resolver.getNamedType('C', _typesAsset.shortUri.toString());
+      final checkerA = TypeChecker.typeNameLiterally('A', inPackage: 'test_');
+      expect(checkerA.isSupertypeOf(typeC), isTrue);
+    });
+
+    test('returns false for interface (not superclass)', () {
+      final typeE = resolver.getNamedType('E', _typesAsset.shortUri.toString());
+      final checkerB = TypeChecker.typeNameLiterally('B', inPackage: 'test_');
+      expect(checkerB.isSupertypeOf(typeE), isFalse);
+    });
+
+    test('returns false for mixin (not superclass)', () {
+      final typeM = resolver.getNamedType('M', _typesAsset.shortUri.toString());
+      final checkerA = TypeChecker.typeNameLiterally('A', inPackage: 'test_');
+      expect(checkerA.isSupertypeOf(typeM), isFalse);
+    });
+  });
+
+  group('TypeChecker annotations', () {
+    test('hasAnnotationOf returns true if annotation exists', () {
+      final annotatedAsset = StringAsset.withRawUri('''
+        import 'package:test_/types.dart';
+        @A()
+        class Annotated {}
+      ''', 'package:test_/annotated.dart');
+
+      scanner.scan(_importedTypesAsset);
+      scanner.scan(annotatedAsset);
+
+      resolver.resolveLibrary(_importedTypesAsset);
+      resolver.resolveLibrary(annotatedAsset);
+
+      final annotatedClass = resolver.getNamedType('Annotated', 'package:test_/annotated.dart').element;
+      final checkerA = TypeChecker.typeNameLiterally('A', inPackage: 'test_');
+
+      expect(checkerA.hasAnnotationOf(annotatedClass!), isTrue);
+      expect(checkerA.firstAnnotationOf(annotatedClass), isNotNull);
+    });
+  });
+
+  group('TypeChecker.matchingTypeOrSupertype', () {
+    test('returns the matched type', () {
+      final typeC = resolver.getNamedType('C', _typesAsset.shortUri.toString());
+      final checkerA = TypeChecker.typeNameLiterally('A', inPackage: 'test_');
+      final matched = checkerA.matchingTypeOrSupertype(typeC);
+      expect(matched, isNotNull);
+      expect(matched!.name, 'A');
+    });
+  });
+
+  group('TypeChecker - FutureOr', () {
+    test('isExactlyType matches FutureOr', () {
+      final intType = resolver.getNamedType('int', 'dart:core');
+      final futureOrInt = InterfaceTypeImpl(
+        'FutureOr',
+        (resolver.getNamedType('FutureOr', 'dart:async') as InterfaceType).declarationRef,
+        resolver,
+        typeArguments: [intType],
+      );
+      final checkerFutureOr = TypeChecker.typeNameLiterally('FutureOr', inSdk: true);
+      expect(checkerFutureOr.isExactlyType(futureOrInt), isTrue);
     });
   });
 }

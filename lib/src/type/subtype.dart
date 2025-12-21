@@ -447,7 +447,7 @@ class SubtypeHelper {
             superType,
           );
         } else {
-          _interfaceArguments(superElement, interface, superType);
+          return _interfaceArguments(superElement, interface, superType);
         }
       }
     }
