@@ -1,14 +1,11 @@
 import 'package:lean_builder/builder.dart';
 import 'package:lean_builder/src/build_script/build_script.dart';
 import 'package:lean_builder/src/build_script/errors.dart';
-import 'package:lean_builder/src/graph/assets_graph.dart';
 import 'package:lean_builder/src/graph/references_scanner.dart';
-import 'package:lean_builder/src/resolvers/source_parser.dart';
 import 'package:lean_builder/src/resolvers/resolver.dart';
+import 'package:lean_builder/src/test/scanner.dart';
+import 'package:lean_builder/test.dart';
 import 'package:test/test.dart';
-
-import '../scanner/string_asset_src.dart';
-import '../utils/test_utils.dart';
 
 void main() {
   late PackageFileResolver fileResolver;
@@ -16,29 +13,26 @@ void main() {
   late ResolverImpl resolver;
 
   setUpAll(() {
-    fileResolver = PackageFileResolver.forRoot();
+    fileResolver = getTestFileResolver();
   });
 
   setUp(() {
     final AssetsGraph graph = AssetsGraph('hash');
     scanner = ReferencesScanner(graph, fileResolver);
-    scanDartSdk(scanner, also: <String>{'lean_builder'});
+    scanDartSdkAndPackages(scanner, packages: <String>{'lean_builder'});
     resolver = ResolverImpl(graph, fileResolver, SourceParser());
   });
 
   test('Should parse Simple SharedPart builder entry', () {
-    final StringAsset asset = StringAsset('''
+    final StringAsset asset = StringAsset.withRawUri('''
       import 'package:lean_builder/builder.dart';
       
       @LeanGenerator.shared()
       class FooGenerator extends Generator {}
-    ''');
+    ''', 'package:test_/foo_generator.dart');
 
     scanner.scan(asset);
-    final (List<BuilderDefinitionEntry> entries, _) = parseBuilderEntries(
-      <Asset>{asset},
-      resolver,
-    );
+    final (List<BuilderDefinitionEntry> entries, _) = parseBuilderEntries(<Asset>{asset}, resolver);
     expect(entries.length, 1);
     expect(
       entries.first,
@@ -52,14 +46,38 @@ void main() {
       ),
     );
   });
+  // test relative import
+  test('Should parse Simple builder with relative import', () {
+    final StringAsset asset = StringAsset('''
+      import 'package:lean_builder/builder.dart';
+      
+     @LeanGenerator.shared()
+      class FooGenerator extends Generator {}
+    ''', fileName: 'generator.dart');
+
+    scanner.scan(asset);
+    final (List<BuilderDefinitionEntry> entries, _) = parseBuilderEntries(<Asset>{asset}, resolver);
+    expect(entries.length, 1);
+    expect(
+      entries.first,
+      BuilderDefinitionEntry(
+        key: 'FooGenerator',
+        import: '../../../../../../../test_/generator.dart',
+        builderType: BuilderType.shared,
+        generatorName: 'FooGenerator',
+        expectsOptions: false,
+        generateToCache: false,
+      ),
+    );
+  });
 
   test('Should parse Simple Library builder entry', () {
-    final StringAsset asset = StringAsset('''
+    final StringAsset asset = StringAsset.withRawUri('''
       import 'package:lean_builder/builder.dart';
       
       @LeanGenerator({'.lib.dart'})
       class FooGenerator extends Generator {}
-    ''');
+    ''', 'package:test_/foo_generator.dart');
 
     scanner.scan(asset);
     final (List<BuilderDefinitionEntry> entries, _) = parseBuilderEntries(
@@ -67,6 +85,7 @@ void main() {
       resolver,
     );
     expect(entries.length, 1);
+
     expect(
       entries.first,
       BuilderDefinitionEntry(
@@ -81,12 +100,12 @@ void main() {
   });
 
   test('Should parse SharedPart with custom key', () {
-    final StringAsset asset = StringAsset('''
+    final StringAsset asset = StringAsset.withRawUri('''
       import 'package:lean_builder/builder.dart';
       
       @LeanGenerator.shared(key: 'CustomKey')
       class FooGenerator extends Generator {}
-    ''');
+    ''', 'package:test_/foo_generator.dart');
 
     scanner.scan(asset);
     final (List<BuilderDefinitionEntry> entries, _) = parseBuilderEntries(
@@ -108,12 +127,12 @@ void main() {
   });
 
   test('Should parse SharedPart with customizations', () {
-    final StringAsset asset = StringAsset('''
+    final StringAsset asset = StringAsset.withRawUri('''
       import 'package:lean_builder/builder.dart';
       
       @LeanGenerator.shared(generateToCache: false, options: {'key': 'value'}, generateFor: {'lib/**.dart'}, runsBefore: {'other'})
       class FooGenerator extends Generator {}
-    ''');
+    ''', 'package:test_/foo_generator.dart');
 
     scanner.scan(asset);
     final (List<BuilderDefinitionEntry> entries, _) = parseBuilderEntries(
@@ -161,7 +180,7 @@ void main() {
       class FooGenerator extends Bar {}
     ''');
 
-    scanner.registerAndScan(asset, relativeTo: asset);
+    scanner.scan(asset);
     expect(
       () => parseBuilderEntries(<Asset>{asset}, resolver),
       throwsA(isA<BuildConfigError>()),
@@ -169,14 +188,14 @@ void main() {
   });
 
   test('Should register the generic type args for the extended generator', () {
-    final StringAsset asset = StringAsset('''
+    final StringAsset asset = StringAsset.withRawUri('''
       import 'package:lean_builder/builder.dart';
        class Bar{ const Bar();}
       @LeanGenerator.shared()
       class FooGenerator extends GeneratorForAnnotation<Bar> {}
-    ''');
+    ''', 'package:test_/foo_generator.dart');
 
-    scanner.registerAndScan(asset, relativeTo: asset);
+    scanner.scan(asset);
     final (List<BuilderDefinitionEntry> entries, _) = parseBuilderEntries(
       <Asset>{asset},
       resolver,
@@ -199,15 +218,15 @@ void main() {
   });
 
   test('Should register the generic type args for the annotation', () {
-    final StringAsset asset = StringAsset('''
+    final StringAsset asset = StringAsset.withRawUri('''
       import 'package:lean_builder/builder.dart';
        class Bar {}
        class Baz {}
       @LeanGenerator.shared(registerTypes: {Bar,Baz})
       class FooGenerator extends Generator {}
-    ''');
+    ''', 'package:test_/foo_generator.dart');
 
-    scanner.registerAndScan(asset, relativeTo: asset);
+    scanner.scan(asset);
     final (List<BuilderDefinitionEntry> entries, _) = parseBuilderEntries(
       <Asset>{asset},
       resolver,
@@ -233,16 +252,16 @@ void main() {
   test(
     'Should set expectsOptions to true if the generator has a single positional parameter of type BuilderOptions',
     () {
-      final StringAsset asset = StringAsset('''
+      final StringAsset asset = StringAsset.withRawUri('''
       import 'package:lean_builder/builder.dart';
       
       @LeanGenerator.shared()
       class FooGenerator extends Generator {
         FooGenerator(BuilderOptions options);
       }
-    ''');
+    ''', 'package:test_/foo_generator.dart');
 
-      scanner.registerAndScan(asset, relativeTo: asset);
+      scanner.scan(asset);
       final (List<BuilderDefinitionEntry> entries, _) = parseBuilderEntries(
         <Asset>{asset},
         resolver,
@@ -265,15 +284,15 @@ void main() {
   test(
     'Should throw if the constructor has more then one positional parameter of type BuilderOptions',
     () {
-      final StringAsset asset = StringAsset('''
+      final StringAsset asset = StringAsset.withRawUri('''
       import 'package:lean_builder/builder.dart';
       
       @LeanGenerator.shared()
       class FooGenerator extends Generator {
         FooGenerator(BuilderOptions options, String name);
       }
-    ''');
-      scanner.registerAndScan(asset, relativeTo: asset);
+    ''', 'package:test_/foo_generator.dart');
+      scanner.scan(asset);
       expect(
         () => parseBuilderEntries(<Asset>{asset}, resolver),
         throwsA(isA<BuildConfigError>()),
@@ -282,13 +301,13 @@ void main() {
   );
 
   test('Should throw if @LeanGenerator is used on none class elements', () {
-    final StringAsset asset = StringAsset('''
+    final StringAsset asset = StringAsset.withRawUri('''
       import 'package:lean_builder/builder.dart';
       
       @LeanGenerator.shared()
        enum FooEnum {}
-    ''');
-    scanner.registerAndScan(asset, relativeTo: asset);
+    ''', 'package:test_/foo_generator.dart');
+    scanner.scan(asset);
     expect(
       () => parseBuilderEntries(<Asset>{asset}, resolver),
       throwsA(isA<BuildConfigError>()),
@@ -298,15 +317,15 @@ void main() {
   test(
     'Should throw if the constructor has more then one positional parameter of type BuilderOptions for @LeanBuilder annotation',
     () {
-      final StringAsset asset = StringAsset('''
+      final StringAsset asset = StringAsset.withRawUri('''
       import 'package:lean_builder/builder.dart';
       
       @LeanBuilder()
       class FooBuilder extends Builder {
         FooBuilder(BuilderOptions options, String name);
       }
-    ''');
-      scanner.registerAndScan(asset, relativeTo: asset);
+    ''', 'package:test_/foo_generator.dart');
+      scanner.scan(asset);
       expect(
         () => parseBuilderEntries(<Asset>{asset}, resolver),
         throwsA(isA<BuildConfigError>()),
@@ -317,14 +336,14 @@ void main() {
   test(
     'Should throw if the constructor has a single BuilderOptions parameter but is not positional',
     () {
-      final StringAsset asset = StringAsset('''
+      final StringAsset asset = StringAsset.withRawUri('''
       import 'package:lean_builder/builder.dart';
       
       @LeanGenerator.shared()
       class FooGenerator extends Generator {
         FooGenerator({required BuilderOptions options});
       }
-    ''');
+    ''', 'package:test_/foo_generator.dart');
       scanner.scan(asset);
       expect(
         () => parseBuilderEntries(<Asset>{asset}, resolver),
@@ -430,7 +449,7 @@ void main() {
   });
 
   test('Should override the builder entry with the one in the overrides', () {
-    final StringAsset asset = StringAsset('''
+    final StringAsset asset = StringAsset.withRawUri('''
       import 'package:lean_builder/builder.dart';
       
       @LeanGenerator.shared(options: {'feature': true})
@@ -440,7 +459,7 @@ void main() {
       const builderOverrides = [
         BuilderOverride(key: 'FooGenerator', options: {'feature': false}, generateFor: {'lib/**.dart'}),
       ];
-    ''');
+    ''', 'package:test_/foo_generator.dart');
     scanner.scan(asset);
     final (
       List<BuilderDefinitionEntry> entries,

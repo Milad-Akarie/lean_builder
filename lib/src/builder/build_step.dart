@@ -146,7 +146,7 @@ class BuildStepImpl implements BuildStep {
   ///
   /// @param extension The extension for the output file
   /// @return The URI where the output file should be written
-  Uri _getOutputUri(String extension) {
+  Uri getOutputUri(String extension) {
     if (generateToCache) {
       final Uri shortUri = asset.shortUri;
       final isPackageUri = shortUri.scheme == 'package';
@@ -188,7 +188,7 @@ class BuildStepImpl implements BuildStep {
     List<int> bytes, {
     required String extension,
   }) async {
-    final Uri outputUri = _getOutputUri(extension);
+    final Uri outputUri = getOutputUri(extension);
     await File.fromUri(outputUri).writeAsBytes(bytes);
     _outputs.add(outputUri);
   }
@@ -199,7 +199,7 @@ class BuildStepImpl implements BuildStep {
     required String extension,
     Encoding encoding = utf8,
   }) async {
-    final Uri outputUri = _getOutputUri(extension);
+    final Uri outputUri = getOutputUri(extension);
     final File file = File.fromUri(outputUri);
     await file.writeAsString(contents, encoding: encoding);
     _outputs.add(outputUri);

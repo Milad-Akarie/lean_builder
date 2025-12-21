@@ -47,6 +47,16 @@ abstract class Resolver {
   /// {@endtemplate}
   PackageFileResolver get fileResolver;
 
+  /// Builds a default resolver implementation.
+  factory Resolver.from(
+    AssetsGraph graph,
+    PackageFileResolver fileResolver,
+    SourceParser parser,
+  ) = ResolverImpl;
+
+  /// Default constructor for the Resolver interface.
+  const Resolver();
+
   /// {@template resolver.invalidate_asset_cache}
   /// Invalidates any cached information for the given asset.
   ///
@@ -645,9 +655,15 @@ class ResolverImpl extends Resolver {
     final Iterable<ConstructorDeclaration> constructors = namedUnit.childEntities.whereType<ConstructorDeclaration>();
     if (constructors.isEmpty && elem is ClassElementImpl) {
       // If no constructors are defined, add a default constructor
-      elem.addConstructor(
-        ConstructorElementImpl(name: '', enclosingElement: elem, isConst: false, isFactory: false, isGenerator: false),
+      final defaultConstructor = ConstructorElementImpl(
+        name: '',
+        enclosingElement: elem,
+        isConst: false,
+        isFactory: false,
+        isGenerator: false,
       );
+      defaultConstructor.returnType = elem.thisType;
+      elem.addConstructor(defaultConstructor);
       return;
     }
 

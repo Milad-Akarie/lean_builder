@@ -342,10 +342,7 @@ class ReferencesScanner {
       return (_skipUntil(next, TokenType.SEMICOLON), null);
     }
 
-    final Asset asset = fileResolver.assetForUri(
-      uri,
-      relativeTo: enclosingAsset,
-    );
+    final Asset asset = fileResolver.assetForUri(uri, relativeTo: enclosingAsset);
 
     final List<String> show = <String>[];
     final List<String> hide = <String>[];

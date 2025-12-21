@@ -1,20 +1,33 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:lean_builder/src/asset/asset.dart';
+
+import 'package:lean_builder/builder.dart';
+import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 import 'package:xxh3/xxh3.dart';
 
+@visibleForTesting
+/// A simple in-memory implementation of [Asset] for testing purposes.
 class StringAsset implements Asset {
-  StringAsset(this.content, {this.uriString = 'package:root/path.dart'});
+  /// The package name used for test assets.
+  static const String testPackageName = r'test_';
 
-  final String uriString;
+  /// Creates a new StringAsset with the given [content] and optional [fileName].
+  StringAsset(this.content, {String fileName = 'path.dart'}) : stringUri = 'asset:$testPackageName/$fileName';
+
+  /// Creates a new StringAsset with the given [content] and [stringUri].
+  StringAsset.withRawUri(this.content, this.stringUri);
+
+  /// The URI string representing this asset.
+  final String stringUri;
 
   @override
-  late final String id = xxh3String(Uint8List.fromList(uriString.codeUnits));
+  late final String id = xxh3String(Uint8List.fromList(stringUri.codeUnits));
 
   @override
-  late final Uri uri = Uri.parse(uriString);
+  Uri get uri => Uri.file('/${Uri.parse(stringUri).path}');
 
+  /// The content of this asset as a string.
   final String content;
 
   @override
@@ -31,7 +44,7 @@ class StringAsset implements Asset {
   bool existsSync() => true;
 
   @override
-  Uri get shortUri => uri;
+  Uri get shortUri => Uri.parse(stringUri);
 
   @override
   String? get packageName {

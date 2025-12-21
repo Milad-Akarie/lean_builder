@@ -4,13 +4,13 @@ import 'dart:isolate' show Isolate;
 
 import 'package:lean_builder/builder.dart';
 import 'package:lean_builder/runner.dart';
-import 'package:lean_builder/src/graph/assets_graph.dart';
 import 'package:lean_builder/src/graph/references_scan_manager.dart';
 import 'package:lean_builder/src/graph/references_scanner.dart';
 import 'package:lean_builder/src/logger.dart';
 import 'package:lean_builder/src/resolvers/resolver.dart';
 import 'package:lean_builder/src/runner/build_utils.dart';
 
+import '../../test.dart';
 import 'build_result.dart';
 
 /// {@template build_phase}

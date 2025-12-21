@@ -1,14 +1,11 @@
-import 'package:lean_builder/src/asset/package_file_resolver.dart' show PackageFileResolver;
+import 'package:lean_builder/builder.dart';
 import 'package:lean_builder/src/element/element.dart';
-import 'package:lean_builder/src/graph/assets_graph.dart';
 import 'package:lean_builder/src/graph/references_scanner.dart';
 import 'package:lean_builder/src/resolvers/resolver.dart';
-import 'package:lean_builder/src/resolvers/source_parser.dart';
+import 'package:lean_builder/src/test/scanner.dart';
+import 'package:lean_builder/test.dart';
 import 'package:test/expect.dart';
 import 'package:test/scaffolding.dart';
-
-import '../scanner/string_asset_src.dart';
-import '../utils/test_utils.dart';
 
 void main() {
   PackageFileResolver? fileResolver;
@@ -16,7 +13,7 @@ void main() {
   ResolverImpl? resolver;
 
   setUp(() {
-    fileResolver = PackageFileResolver.forRoot();
+    fileResolver = getTestFileResolver();
     final AssetsGraph graph = AssetsGraph('hash');
     scanner = ReferencesScanner(graph, fileResolver!);
     resolver = ResolverImpl(graph, fileResolver!, SourceParser());
@@ -53,8 +50,8 @@ void main() {
         Never neverMethod() {}
       }
     ''');
-    scanner!.registerAndScan(asset);
-    scanDartSdk(scanner!, also: <String>{'meta'});
+    scanner!.scan(asset);
+    scanDartSdkAndPackages(scanner!, packages: <String>{'meta'});
     final LibraryElement library = resolver!.resolveLibrary(asset);
     final ClassElementImpl? classElement = library.getClass('CoreTypes');
     expect(classElement, isNotNull);

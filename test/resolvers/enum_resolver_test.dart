@@ -1,15 +1,12 @@
 import 'package:lean_builder/src/asset/package_file_resolver.dart';
 import 'package:lean_builder/src/element/element.dart';
-import 'package:lean_builder/src/graph/assets_graph.dart';
 import 'package:lean_builder/src/graph/references_scanner.dart';
 import 'package:lean_builder/src/resolvers/constant/constant.dart';
 import 'package:lean_builder/src/resolvers/resolver.dart';
-import 'package:lean_builder/src/resolvers/source_parser.dart';
+import 'package:lean_builder/src/test/scanner.dart';
 import 'package:lean_builder/src/type/type.dart';
+import 'package:lean_builder/test.dart';
 import 'package:test/test.dart';
-
-import '../scanner/string_asset_src.dart';
-import '../utils/test_utils.dart';
 
 void main() {
   PackageFileResolverImpl? fileResolver;
@@ -17,7 +14,7 @@ void main() {
   ResolverImpl? resolver;
 
   setUp(() {
-    fileResolver = PackageFileResolver.forRoot() as PackageFileResolverImpl;
+    fileResolver = getTestFileResolver();
     final AssetsGraph graph = AssetsGraph('hash');
     scanner = ReferencesScanner(graph, fileResolver!);
     resolver = ResolverImpl(graph, fileResolver!, SourceParser());
@@ -78,28 +75,27 @@ void main() {
   });
 
   test('should resolve enum with annotations', () {
-    final StringAsset annotationAsset = StringAsset('''
-      class Bar {
-        const Bar();
-      }
-    ''', uriString: 'package:bar/bar.dart');
+    final StringAsset annotationAsset = StringAsset(
+      'class Bar { const Bar();}',
+      fileName: 'bar.dart',
+    );
 
     final StringAsset asset = StringAsset('''
-      import 'package:bar/bar.dart';
+      import 'bar.dart';
       @Bar()
       enum Foo { enum1 }
-    ''');
+    ''', fileName: 'foo.dart');
 
-    fileResolver!.registerAsset(asset);
-    fileResolver!.registerAsset(annotationAsset, relativeTo: asset);
     scanner!.scan(annotationAsset);
     scanner!.scan(asset);
+
     final LibraryElement library = resolver!.resolveLibrary(asset);
     final LibraryElement annotationLibrary = resolver!.resolveLibrary(
       annotationAsset,
     );
     final EnumElementImpl? enumElement = library.getEnum('Foo');
     expect(enumElement, isNotNull);
+
     expect(enumElement!.metadata.length, 1);
     expect(
       enumElement.metadata[0].type,
@@ -140,8 +136,8 @@ void main() {
         const Foo(this.value); 
       }
     ''');
-    scanner!.registerAndScan(asset);
-    scanDartSdk(scanner!);
+    scanner!.scan(asset);
+    scanDartSdkAndPackages(scanner!);
     final LibraryElement library = resolver!.resolveLibrary(asset);
     final EnumElementImpl? enumElement = library.getEnum('Foo');
     expect(enumElement, isNotNull);
@@ -166,8 +162,8 @@ void main() {
         const Foo(this.value, {this.name}); 
       }
     ''');
-    scanner!.registerAndScan(asset);
-    scanDartSdk(scanner!);
+    scanner!.scan(asset);
+    scanDartSdkAndPackages(scanner!);
     final LibraryElement library = resolver!.resolveLibrary(asset);
     final EnumElementImpl? enumElement = library.getEnum('Foo');
     expect(enumElement, isNotNull);

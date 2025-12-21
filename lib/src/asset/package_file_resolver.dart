@@ -3,14 +3,13 @@ import 'dart:io' show File, Directory, Platform;
 import 'dart:typed_data' show Uint8List;
 
 import 'package:lean_builder/src/utils.dart';
-import 'package:meta/meta.dart' show visibleForTesting;
 import 'package:path/path.dart' as p show join, joinAll, dirname, normalize, current;
 import 'package:xxh3/xxh3.dart' show xxh3String;
 import 'asset.dart';
 import 'errors.dart';
 
 /// Path to the Dart package configuration file.
-const String _packageConfigLocation = '.dart_tool/package_config.json';
+const String packageConfigLocation = '.dart_tool/package_config.json';
 
 /// Special package name for Flutter's SDK implementation.
 const String _skyEnginePackage = 'sky_engine';
@@ -146,7 +145,7 @@ abstract class PackageFileResolver {
   /// @throws PackageConfigParseError if the configuration file is invalid
   /// {@endtemplate}
   factory PackageFileResolver.forRoot() {
-    final String configUri = p.join(p.current, _packageConfigLocation);
+    final String configUri = p.join(p.current, packageConfigLocation);
     return PackageFileResolverImpl.forRoot(configUri, rootPackageName);
   }
 
@@ -374,21 +373,6 @@ class PackageFileResolverImpl implements PackageFileResolver {
   /// {@endtemplate}
   final Map<String, Asset> _assetCache = <String, Asset>{};
 
-  /// {@template package_file_resolver_impl.register_asset}
-  /// Manually registers an asset in the cache.
-  ///
-  /// This is primarily used for testing to pre-populate the cache.
-  ///
-  /// @param asset The asset to register
-  /// @param relativeTo An optional base asset for creating the cache key
-  /// {@endtemplate}
-  @visibleForTesting
-  void registerAsset(Asset asset, {Asset? relativeTo}) {
-    final uri = asset.uri;
-    final String reqId = uri.hasScheme ? uri.toString() : '$uri@${relativeTo?.uri}';
-    _assetCache[reqId] = asset;
-  }
-
   @override
   Asset assetForUri(Uri uri, {Asset? relativeTo}) {
     final String reqId = uri.hasScheme ? uri.toString() : '$uri@${relativeTo?.uri}';
@@ -398,6 +382,7 @@ class PackageFileResolverImpl implements PackageFileResolver {
     assert(!uri.hasEmptyPath, 'URI path cannot be empty');
     final Uri absoluteUri = resolveFileUri(uri, relativeTo: relativeTo?.uri);
     final Uri shortUri = toShortUri(absoluteUri);
+
     try {
       final String id = xxh3String(
         Uint8List.fromList(shortUri.toString().codeUnits),

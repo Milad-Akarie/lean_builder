@@ -1,21 +1,18 @@
+import 'package:lean_builder/builder.dart';
 import 'package:lean_builder/element.dart';
-import 'package:lean_builder/src/asset/package_file_resolver.dart';
-import 'package:lean_builder/src/graph/assets_graph.dart';
 import 'package:lean_builder/src/graph/references_scanner.dart';
-import 'package:lean_builder/src/resolvers/source_parser.dart';
 import 'package:lean_builder/src/resolvers/resolver.dart';
+import 'package:lean_builder/src/test/scanner.dart';
+import 'package:lean_builder/test.dart';
 import 'package:test/expect.dart';
 import 'package:test/scaffolding.dart';
-
-import '../scanner/string_asset_src.dart';
-import '../utils/test_utils.dart';
 
 void main() {
   late ReferencesScanner scanner;
   late AssetsGraph assetsGraph;
   late ResolverImpl resolver;
   setUp(() {
-    final PackageFileResolver fileResolver = PackageFileResolver.forRoot();
+    final PackageFileResolver fileResolver = getTestFileResolver();
     assetsGraph = AssetsGraph(fileResolver.packagesHash);
     scanner = ReferencesScanner(assetsGraph, fileResolver);
     resolver = ResolverImpl(assetsGraph, fileResolver, SourceParser());
@@ -39,9 +36,9 @@ void main() {
         static const bool k = false;
         static const num l = 1.0;
       }
-    ''', uriString: 'package:lean_builder/path.dart');
-    scanDartSdk(scanner);
-    scanner.registerAndScan(asset);
+    ''', fileName: 'package:lean_builder/path.dart');
+    scanDartSdkAndPackages(scanner);
+    scanner.scan(asset);
     final LibraryElement library = resolver.resolveLibrary(asset);
     final ClassElementImpl? classElement = library.getClass('Foo');
 

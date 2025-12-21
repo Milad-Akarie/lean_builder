@@ -1,28 +1,28 @@
-import 'package:lean_builder/builder.dart';
-import 'package:lean_builder/src/graph/assets_graph.dart';
 import 'package:lean_builder/src/graph/references_scanner.dart';
-import 'package:lean_builder/src/resolvers/source_parser.dart';
+import 'package:lean_builder/src/test/scanner.dart';
+import 'package:lean_builder/test.dart';
 import 'package:test/test.dart';
 import 'package:lean_builder/src/type/type_checker.dart';
 import 'package:lean_builder/src/resolvers/resolver.dart';
 import 'package:lean_builder/src/graph/declaration_ref.dart';
 import 'package:lean_builder/src/graph/scan_results.dart';
 
-import 'scanner/string_asset_src.dart';
-import 'utils/test_utils.dart';
-
 DeclarationRef refFor(String name, String uri, ReferenceType type) {
   return DeclarationRef.from(name, uri, type);
 }
 
-final _typesAsset = StringAsset(
+final _importedTypesAsset = StringAsset.withRawUri('''
+class A{}
+class B{}
+''', 'package:test_/types.dart');
+
+final _typesAsset = StringAsset.withRawUri(
   '''
-  class A{}
-  class B{}
+  import 'package:test_/types.dart';
   class C extends A {}
   class D extends C {}
 ''',
-  uriString: 'package:test/test.dart',
+  'package:test_/test.dart',
 );
 
 class A {}
@@ -30,36 +30,40 @@ class A {}
 void main() {
   late ResolverImpl resolver;
   setUp(() {
-    final PackageFileResolver fileResolver = PackageFileResolver.forRoot();
+    final fileResolver = getTestFileResolver();
     final assetsGraph = AssetsGraph(fileResolver.packagesHash);
     final scanner = ReferencesScanner(assetsGraph, fileResolver);
-    scanDartSdk(scanner);
-    scanner.registerAndScan(_typesAsset);
+    scanDartSdkAndPackages(scanner);
+    scanner.scan(_typesAsset);
+    scanner.scan(_importedTypesAsset);
     resolver = ResolverImpl(assetsGraph, fileResolver, SourceParser());
+    resolver.resolveLibrary(_importedTypesAsset);
+    resolver.resolveLibrary(_typesAsset);
   });
 
   group('TypeChecker.isExactlyType', () {
     test('fromUrl throws on invalid format', () {
       final checker = TypeChecker.fromUrl('invalid_url');
-      final aType = resolver.getNamedType('A', _typesAsset.uri.toString());
+      final aType = resolver.getNamedType('A', _importedTypesAsset.shortUri.toString());
       expect(() => checker.isExactlyType(aType), throwsArgumentError);
     });
 
     test('fromUrl matches type from valid url', () {
-      final aType = resolver.getNamedType('A', _typesAsset.uri.toString());
-      final checker = TypeChecker.fromUrl('package:test/test.dart#A');
+      final aType = resolver.getNamedType('A', _importedTypesAsset.shortUri.toString());
+      final checker = TypeChecker.fromUrl('${_importedTypesAsset.shortUri}#A');
       expect(checker.isExactlyType(aType), isTrue);
     });
 
     test('fromUrl returns false for different type', () {
-      final bType = resolver.getNamedType('B', _typesAsset.uri.toString());
-      final checker = TypeChecker.fromUrl('package:test/test.dart#A');
+      final bType = resolver.getNamedType('B', _importedTypesAsset.shortUri.toString());
+      final checker = TypeChecker.fromUrl('${_importedTypesAsset.shortUri}#A');
       expect(checker.isExactlyType(bType), isFalse);
     });
 
     test('typeNameLiterally matches type name', () {
-      final dummyType = resolver.getNamedType('A', _typesAsset.uri.toString());
-      final checker = const TypeChecker.typeNameLiterally('A', inPackage: 'test');
+      final dummyType = resolver.getNamedType('A', _importedTypesAsset.shortUri.toString());
+      print(dummyType);
+      final checker = const TypeChecker.typeNameLiterally('A', inPackage: 'test_');
       expect(checker.isExactlyType(dummyType), isTrue);
     });
 
@@ -70,30 +74,30 @@ void main() {
     });
 
     test('typeNameLiterally returns false for different type', () {
-      final bType = resolver.getNamedType('B', _typesAsset.uri.toString());
-      final checker = TypeChecker.typeNameLiterally('A', inPackage: 'test');
+      final bType = resolver.getNamedType('B', _importedTypesAsset.shortUri.toString());
+      final checker = TypeChecker.typeNameLiterally('A', inPackage: 'test_');
       expect(checker.isExactlyType(bType), isFalse);
     });
 
     test('typeNamed matches runtime type', () {
-      final dummyType = resolver.getNamedType('A', _typesAsset.uri.toString());
-      final checker = TypeChecker.typeNamed(A, inPackage: 'test');
+      final dummyType = resolver.getNamedType('A', _importedTypesAsset.shortUri.toString());
+      final checker = TypeChecker.typeNamed(A, inPackage: 'test_');
       expect(checker.isExactlyType(dummyType), isTrue);
     });
 
     test('typeNamed returns false for different type', () {
-      final bType = resolver.getNamedType('B', _typesAsset.uri.toString());
-      final checker = TypeChecker.typeNamed(A, inPackage: 'test');
+      final bType = resolver.getNamedType('B', _importedTypesAsset.shortUri.toString());
+      final checker = TypeChecker.typeNamed(A, inPackage: 'test_');
       expect(checker.isExactlyType(bType), isFalse);
     });
 
     test('any delegates to multiple checkers', () {
-      final checker1 = TypeChecker.typeNameLiterally('A', inPackage: 'test');
-      final checker2 = TypeChecker.typeNameLiterally('B', inPackage: 'test');
+      final checker1 = TypeChecker.typeNameLiterally('A', inPackage: 'test_');
+      final checker2 = TypeChecker.typeNameLiterally('B', inPackage: 'test_');
       final anyChecker = TypeChecker.any([checker1, checker2]);
-      final fakeTypeA = resolver.getNamedType('A', _typesAsset.uri.toString());
-      final fakeTypeB = resolver.getNamedType('B', _typesAsset.uri.toString());
-      final dummyType = resolver.getNamedType('C', _typesAsset.uri.toString());
+      final fakeTypeA = resolver.getNamedType('A', _importedTypesAsset.shortUri.toString());
+      final fakeTypeB = resolver.getNamedType('B', _importedTypesAsset.shortUri.toString());
+      final dummyType = resolver.getNamedType('C', _typesAsset.shortUri.toString());
       expect(anyChecker.isExactlyType(fakeTypeA), isTrue);
       expect(anyChecker.isExactlyType(fakeTypeB), isTrue);
       expect(anyChecker.isExactlyType(dummyType), isFalse);
@@ -102,26 +106,26 @@ void main() {
 
   group('TypeChecker.isAssignableFromType', () {
     test('returns true for the same type', () {
-      final typeA = resolver.getNamedType('A', _typesAsset.uri.toString());
-      final checker = TypeChecker.fromUrl('${_typesAsset.uri}#A');
+      final typeA = resolver.getNamedType('A', _importedTypesAsset.shortUri.toString());
+      final checker = TypeChecker.fromUrl('${_importedTypesAsset.shortUri}#A');
       expect(checker.isAssignableFromType(typeA), isTrue);
     });
 
     test('returns true for subtype', () {
-      final typeC = resolver.getNamedType('C', _typesAsset.uri.toString());
-      final checker = TypeChecker.fromUrl('${_typesAsset.uri}#A');
+      final typeC = resolver.getNamedType('C', _typesAsset.shortUri.toString());
+      final checker = TypeChecker.typeNameLiterally('A', inPackage: 'test_');
       expect(checker.isAssignableFromType(typeC), isTrue);
     });
 
     test('returns false for unrelated type', () {
-      final typeB = resolver.getNamedType('B', _typesAsset.uri.toString());
-      final checker = TypeChecker.fromUrl('${_typesAsset.uri}#A');
+      final typeB = resolver.getNamedType('B', _importedTypesAsset.shortUri.toString());
+      final checker = TypeChecker.fromUrl('${_importedTypesAsset.shortUri}#A');
       expect(checker.isAssignableFromType(typeB), isFalse);
     });
 
     test('returns true for deeper subtype', () {
-      final typeD = resolver.getNamedType('D', _typesAsset.uri.toString());
-      final checker = TypeChecker.fromUrl('${_typesAsset.uri}#A');
+      final typeD = resolver.getNamedType('D', _typesAsset.shortUri.toString());
+      final checker = TypeChecker.fromUrl('${_importedTypesAsset.shortUri}#A');
       expect(checker.isAssignableFromType(typeD), isTrue);
     });
   });

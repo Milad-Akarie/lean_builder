@@ -1,13 +1,10 @@
-import 'package:lean_builder/src/asset/package_file_resolver.dart';
+import 'package:lean_builder/builder.dart';
 import 'package:lean_builder/src/element/element.dart';
-import 'package:lean_builder/src/graph/assets_graph.dart';
 import 'package:lean_builder/src/graph/references_scanner.dart';
 import 'package:lean_builder/src/resolvers/resolver.dart';
-import 'package:lean_builder/src/resolvers/source_parser.dart';
 import 'package:lean_builder/src/type/type.dart';
+import 'package:lean_builder/test.dart';
 import 'package:test/test.dart';
-
-import '../scanner/string_asset_src.dart';
 
 void main() {
   late PackageFileResolver fileResolver;
@@ -15,7 +12,7 @@ void main() {
   ResolverImpl? resolver;
 
   setUpAll(() {
-    fileResolver = PackageFileResolver.forRoot();
+    fileResolver = getTestFileResolver();
   });
 
   setUp(() {

@@ -1,25 +1,22 @@
-import 'package:lean_builder/src/asset/package_file_resolver.dart' show PackageFileResolverImpl;
-import 'package:lean_builder/src/graph/assets_graph.dart' show AssetsGraph;
+import 'dart:typed_data';
+
 import 'package:lean_builder/src/graph/directive_statement.dart';
 import 'package:lean_builder/src/graph/scan_results.dart';
 import 'package:lean_builder/src/graph/references_scanner.dart' show ReferencesScanner;
+import 'package:lean_builder/test.dart';
 
 import 'package:test/expect.dart';
 import 'package:test/scaffolding.dart';
+import 'package:xxh3/xxh3.dart';
 
-import '../utils/test_utils.dart';
-import 'string_asset_src.dart';
+String idFor(String uriString) => xxh3String(Uint8List.fromList(uriString.codeUnits));
 
 void main() {
   late ReferencesScanner scanner;
   late AssetsGraph assetsGraph;
 
   setUp(() {
-    final PackageFileResolverImpl fileResolver = PackageFileResolverImpl(
-      <String, String>{'root': 'file:///root'},
-      packagesHash: '',
-      rootPackage: 'root',
-    );
+    final fileResolver = getTestFileResolver();
     assetsGraph = AssetsGraph(fileResolver.packagesHash);
     scanner = ReferencesScanner(assetsGraph, fileResolver);
   });
@@ -269,15 +266,15 @@ void main() {
   });
 
   test('Should parse simple import', () {
-    final StringAsset src = StringAsset("import 'package:root/path.dart';");
-    scanner.registerAndScan(src);
+    final StringAsset src = StringAsset("import 'package:test_/path.dart';");
+    scanner.scan(src);
     final List<List<dynamic>> imports = assetsGraph.importsOf(src.id);
     expect(imports.length, 1);
     final List<dynamic> importArr = imports.first;
     expect(importArr, <Object?>[
       DirectiveStatement.import,
-      src.id,
-      'package:root/path.dart',
+      idFor('package:test_/path.dart'),
+      'package:test_/path.dart',
       null,
       null,
     ]);
@@ -285,15 +282,15 @@ void main() {
 
   test('Should parse simple import with alias', () {
     final StringAsset file = StringAsset(
-      "import 'package:root/path.dart' as i;",
+      "import 'package:test_/path.dart' as i;",
     );
     scanner.scan(file);
     final List<List<dynamic>> imports = assetsGraph.importsOf(file.id);
     expect(imports.length, 1);
     expect(imports.first, <Object?>[
       DirectiveStatement.import,
-      file.id,
-      'package:root/path.dart',
+      idFor('package:test_/path.dart'),
+      'package:test_/path.dart',
       null,
       null,
       'i',
@@ -302,16 +299,16 @@ void main() {
 
   test('Should parse simple deferred import', () {
     final StringAsset file = StringAsset(
-      "import 'package:root/path.dart' deferred as i;",
-      uriString: 'package:root/path.dart',
+      "import 'package:test_/path.dart' deferred as i;",
+      fileName: 'package:test_/path.dart',
     );
     scanner.scan(file);
     final List<List<dynamic>> imports = assetsGraph.importsOf(file.id);
     expect(imports.length, 1);
     expect(imports.first, <Object?>[
       DirectiveStatement.import,
-      file.id,
-      'package:root/path.dart',
+      idFor('package:test_/path.dart'),
+      'package:test_/path.dart',
       null,
       null,
       'i',
@@ -321,15 +318,15 @@ void main() {
 
   test('Should parse simple import with show', () {
     final StringAsset asset = StringAsset(
-      "import 'package:root/path.dart' show A, B;",
+      "import 'package:test_/path.dart' show A, B;",
     );
-    scanner.registerAndScan(asset);
+    scanner.scan(asset);
     final List<List<dynamic>> imports = assetsGraph.importsOf(asset.id);
     expect(imports.length, 1);
     expect(imports.first, <Object?>[
       DirectiveStatement.import,
-      asset.id,
-      'package:root/path.dart',
+      idFor('package:test_/path.dart'),
+      'package:test_/path.dart',
       <String>['A', 'B'],
       null,
     ]);
@@ -337,14 +334,14 @@ void main() {
 
   test('Should parse simple import with hide', () {
     final StringAsset asset = StringAsset(
-      "import 'package:root/path.dart' hide A, B;",
+      "import 'package:test_/path.dart' hide A, B;",
     );
-    scanner.registerAndScan(asset);
+    scanner.scan(asset);
     final List<List<dynamic>> imports = assetsGraph.importsOf(asset.id);
     expect(imports.first, <Object?>[
       DirectiveStatement.import,
-      asset.id,
-      'package:root/path.dart',
+      idFor('package:test_/path.dart'),
+      'package:test_/path.dart',
       null,
       <String>['A', 'B'],
     ]);
@@ -352,28 +349,28 @@ void main() {
 
   test('Should parse simple import with show and hide', () {
     final StringAsset file = StringAsset(
-      "import 'package:root/path.dart' show A, B hide C, D;",
+      "import 'package:test_/path.dart' show A, B hide C, D;",
     );
     scanner.scan(file);
     final List<List<dynamic>> imports = assetsGraph.importsOf(file.id);
     expect(imports.length, 1);
     expect(imports.first, <Object>[
       DirectiveStatement.import,
-      file.id,
-      'package:root/path.dart',
+      idFor('package:test_/path.dart'),
+      'package:test_/path.dart',
       <String>['A', 'B'],
       <String>['C', 'D'],
     ]);
   });
 
   test('Should parse simple export', () {
-    final StringAsset file = StringAsset("export 'package:root/path.dart';");
+    final StringAsset file = StringAsset("export 'package:test_/path.dart';");
     scanner.scan(file);
     final List<List<dynamic>> exports = assetsGraph.exportsOf(file.id);
     expect(exports.first, <Object?>[
       DirectiveStatement.export,
-      file.id,
-      'package:root/path.dart',
+      idFor('package:test_/path.dart'),
+      'package:test_/path.dart',
       null,
       null,
     ]);
@@ -381,15 +378,15 @@ void main() {
 
   test('Should parse simple export with show', () {
     final StringAsset file = StringAsset(
-      "export 'package:root/path.dart' show A, B;",
-      uriString: 'package:root/path.dart',
+      "export 'package:test_/path.dart' show A, B;",
+      fileName: 'package:test_/path.dart',
     );
     scanner.scan(file);
     final List<List<dynamic>> exports = assetsGraph.exportsOf(file.id);
     expect(exports.first, <Object?>[
       DirectiveStatement.export,
-      file.id,
-      'package:root/path.dart',
+      idFor('package:test_/path.dart'),
+      'package:test_/path.dart',
       <String>['A', 'B'],
       null,
     ]);
@@ -397,15 +394,15 @@ void main() {
 
   test('Should parse simple export with hide', () {
     final StringAsset file = StringAsset(
-      "export 'package:root/path.dart' hide A, B;",
-      uriString: 'package:root/path.dart',
+      "export 'package:test_/path.dart' hide A, B;",
+      fileName: 'package:test_/path.dart',
     );
     scanner.scan(file);
     final List<List<dynamic>> exports = assetsGraph.exportsOf(file.id);
     expect(exports.first, <Object?>[
       DirectiveStatement.export,
-      file.id,
-      'package:root/path.dart',
+      idFor('package:test_/path.dart'),
+      'package:test_/path.dart',
       null,
       <String>['A', 'B'],
     ]);
@@ -413,44 +410,44 @@ void main() {
 
   test('Should parse simple export with show and hide', () {
     final StringAsset file = StringAsset(
-      "export 'package:root/path.dart' show A, B hide C, D;",
-      uriString: 'package:root/path.dart',
+      "export 'package:test_/path.dart' show A, B hide C, D;",
+      fileName: 'package:test_/path.dart',
     );
     scanner.scan(file);
     final List<List<dynamic>> exports = assetsGraph.exportsOf(file.id);
     expect(exports.first, <Object>[
       DirectiveStatement.export,
-      file.id,
-      'package:root/path.dart',
+      idFor('package:test_/path.dart'),
+      'package:test_/path.dart',
       <String>['A', 'B'],
       <String>['C', 'D'],
     ]);
   });
 
   test('Should parse simple part', () {
-    final StringAsset file = StringAsset("part 'package:root/path.dart';");
-    scanner.registerAndScan(file);
+    final StringAsset file = StringAsset("part 'package:test_/path.dart';");
+    scanner.scan(file);
     final List<List<dynamic>> imports = assetsGraph.importsOf(file.id);
     final List<List<dynamic>> exports = assetsGraph.exportsOf(file.id);
     final List<List<dynamic>> parts = assetsGraph.partsOf(file.id);
     expect(imports.first, <Object?>[
       DirectiveStatement.part,
-      file.id,
-      'package:root/path.dart',
+      idFor('package:test_/path.dart'),
+      'package:test_/path.dart',
       null,
       null,
     ]);
     expect(exports.first, <Object?>[
       DirectiveStatement.part,
-      file.id,
-      'package:root/path.dart',
+      idFor('package:test_/path.dart'),
+      'package:test_/path.dart',
       null,
       null,
     ]);
     expect(parts.first, <Object?>[
       DirectiveStatement.part,
-      file.id,
-      'package:root/path.dart',
+      idFor('package:test_/path.dart'),
+      'package:test_/path.dart',
       null,
       null,
     ]);
@@ -459,9 +456,10 @@ void main() {
   test('Should parse part of', () {
     final StringAsset asset = StringAsset(
       "part of 'path.dart';",
-      uriString: 'path.dart',
+      fileName: 'path2.dart',
     );
-    scanner.registerAndScan(asset, relativeTo: asset);
+    scanner.scan(asset);
+    print(assetsGraph.directives);
     expect(assetsGraph.partOfOf(asset.id), isNotNull);
   });
 
@@ -470,7 +468,7 @@ void main() {
       @Annotation()
       class MyClass {}
     ''');
-    scanner.registerAndScan(asset);
+    scanner.scan(asset);
     expect(assetsGraph.identifiers.first, <Object>[
       'MyClass',
       asset.id,
