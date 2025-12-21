@@ -179,7 +179,7 @@ To read constant values from annotations, use the `ConstantReader` class:
 
 ```dart
 void readConstantValues(ElementAnnotation elementAnnotation) {
-    Constant constant = eleemntAnnotation.constant;
+    Constant constant = elementAnnotation.constant;
   
     if (constant is ConstString) {
       constant.value; // the String value
@@ -208,7 +208,31 @@ void readConstantValues(ElementAnnotation elementAnnotation) {
       constant.element; // the executable element of the function
     }
   }
- ``` 
+  ``` 
+
+### Advanced Type Checking
+
+The `TypeChecker` provides a robust way to identify and compare types across libraries.
+
+```dart
+// Check for a specific type from a package
+final myChecker = TypeChecker.typeNamed(MyType, inPackage: 'my_package');
+
+// Check for deep assignability
+if (myChecker.isAssignableFromType(someType)) {
+  // logic
+}
+
+// Or use a URL-based check
+final urlChecker = TypeChecker.fromUrl('package:my_package/src/models.dart#MyModel');
+```
+
+### Deep Element Model
+
+Lean Builder provides a comprehensive element model that stays up-to-date with modern Dart features:
+- **Class Modifiers**: Full support for `sealed`, `final`, `base`, and `interface` classes.
+- **Modern Syntax**: Accurate resolution for `extension type`, `records`, and `mixins`.
+- **Core Annotations**: Built-in awareness of `package:meta` annotations (e.g., `@internal`, `@protected`, `@visibleForTesting`).
 
 ### Using LeanBuilder directly inside of a project
 
@@ -223,4 +247,5 @@ way, you'll be able to import from `dev_dependencies` with no linter warnings.
   following folders: [`lib`, `bin`, `test`, `codegen`].
 - Annotations used by the generator should be imported from your lib folder or other packages.
 
-**More documentation coming soon!**
+**More documentation:**
+- [Testing Builders](docs/testing.md)
