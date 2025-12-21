@@ -1,3 +1,6 @@
+## 0.1.6
+- Chore: Add test helpers for lean_builder package
+- fix: revert to using watcher 1.1.4 because 1.2 is broken on macos
 ## 0.1.5
 - feat: improve build performance and efficiency
 - fix: minor bug fixes and stability improvements
