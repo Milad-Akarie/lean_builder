@@ -1,9 +1,9 @@
 import 'dart:collection' show HashMap;
 
 import 'package:analyzer/dart/ast/ast.dart';
-
 import 'package:analyzer/dart/ast/token.dart' show TokenType, Token;
 import 'package:analyzer/dart/ast/visitor.dart' show GeneralizingAstVisitor;
+import 'package:collection/collection.dart' show IterableExtension;
 import 'package:lean_builder/src/element/builder/element_builder.dart';
 import 'package:lean_builder/src/element/builder/element_stack.dart';
 import 'package:lean_builder/src/element/element.dart';
@@ -11,7 +11,6 @@ import 'package:lean_builder/src/graph/assets_graph.dart';
 import 'package:lean_builder/src/graph/declaration_ref.dart';
 import 'package:lean_builder/src/graph/scan_results.dart';
 import 'package:lean_builder/src/resolvers/resolver.dart';
-import 'package:collection/collection.dart' show IterableExtension;
 import 'package:lean_builder/src/resolvers/source_based_cache.dart';
 import 'package:lean_builder/src/type/type.dart';
 
@@ -63,7 +62,7 @@ class ConstantEvaluator extends GeneralizingAstVisitor<Constant> with ElementSta
       final NamedType redType = redirectConstructor.type;
       final IdentifierRef identifierRef = _resolver.resolveIdentifier(_library, <String>[
         if (redType.importPrefix != null) redType.importPrefix!.name.lexeme,
-        redType.name2.lexeme,
+        redType.name.lexeme,
       ]);
       final (
         LibraryElementImpl redirectLib,

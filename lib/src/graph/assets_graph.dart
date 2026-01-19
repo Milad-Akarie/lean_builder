@@ -1,7 +1,9 @@
 import 'dart:convert' show jsonDecode, jsonEncode;
 import 'dart:io' show File;
 import 'dart:typed_data' show Uint8List;
+
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:collection/collection.dart';
 import 'package:lean_builder/src/asset/asset.dart';
 import 'package:lean_builder/src/asset/package_file_resolver.dart';
 import 'package:lean_builder/src/builder/builder.dart';
@@ -9,7 +11,6 @@ import 'package:lean_builder/src/graph/directive_statement.dart';
 import 'package:lean_builder/src/graph/references_scan_manager.dart';
 import 'package:lean_builder/src/graph/scan_results.dart';
 import 'package:lean_builder/src/logger.dart';
-import 'package:collection/collection.dart';
 import 'package:lean_builder/src/resolvers/errors.dart';
 import 'package:lean_builder/src/type/core_type_source.dart';
 import 'package:xxh3/xxh3.dart';
@@ -785,7 +786,7 @@ class IdentifierRef {
   /// {@endtemplate}
   factory IdentifierRef.fromType(NamedType type) {
     return IdentifierRef(
-      type.name2.lexeme,
+      type.name.lexeme,
       importPrefix: type.importPrefix?.name.lexeme,
     );
   }
