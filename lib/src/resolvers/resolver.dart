@@ -13,8 +13,8 @@ import 'package:lean_builder/src/graph/declaration_ref.dart';
 import 'package:lean_builder/src/graph/scan_results.dart';
 import 'package:lean_builder/src/resolvers/errors.dart';
 import 'package:lean_builder/src/resolvers/source_based_cache.dart';
-import 'package:collection/collection.dart' show IterableExtension;
 import 'package:lean_builder/src/resolvers/source_parser.dart';
+import 'package:lean_builder/src/resolvers/utils.dart';
 import 'package:lean_builder/src/type/type.dart';
 import 'package:lean_builder/src/type/type_checker.dart';
 import 'package:lean_builder/src/type/type_utils.dart';
@@ -558,16 +558,14 @@ class ResolverImpl extends Resolver {
       return _resolvedUnitsCache.cacheKey(cacheKey, (library, unit, declarationRef));
     }
 
-    final NamedCompilationUnitMember? unit = compilationUnit.declarations
-        .whereType<NamedCompilationUnitMember>()
-        .firstWhereOrNull((NamedCompilationUnitMember e) => e.name.lexeme == declarationRef.identifier);
+    final topLevelUnit = compilationUnit.declarations.findDeclarationWithName(declarationRef.identifier);
 
-    if (unit == null) {
+    if (topLevelUnit == null) {
       throw Exception('Identifier  ${declarationRef.identifier} not found in $srcUri');
     } else if (identifier.isPrefixed) {
       final String targetIdentifier = identifier.name;
 
-      for (final SyntacticEntity member in unit.childEntities) {
+      for (final SyntacticEntity member in topLevelUnit.bodyMembers) {
         if (member is FieldDeclaration) {
           if (member.fields.variables.any((VariableDeclaration v) => v.name.lexeme == targetIdentifier)) {
             return _resolvedUnitsCache.cacheKey(cacheKey, (library, member, declarationRef));
@@ -589,7 +587,7 @@ class ResolverImpl extends Resolver {
       throw Exception('Identifier $targetIdentifier (${identifier.toString()}) not found in $srcUri');
     }
 
-    return _resolvedUnitsCache.cacheKey(cacheKey, (library, unit, declarationRef));
+    return _resolvedUnitsCache.cacheKey(cacheKey, (library, topLevelUnit, declarationRef));
   }
 
   @override
@@ -624,9 +622,10 @@ class ResolverImpl extends Resolver {
   @override
   void resolveMethods(InterfaceElement elem, {ElementPredicate<MethodDeclaration>? predicate}) {
     final ElementBuilder elementBuilder = ElementBuilder(this, elem.library);
-    final NamedCompilationUnitMember namedUnit = (elem as InterfaceElementImpl).compilationUnit;
+    final InterfaceElementImpl interfaceElem = elem as InterfaceElementImpl;
+    final interfaceUnit = interfaceElem.compilationUnit;
 
-    final Iterable<MethodDeclaration> methods = namedUnit.childEntities.filterAs<MethodDeclaration>(predicate);
+    final Iterable<MethodDeclaration> methods = interfaceUnit.bodyMembers.filterAs<MethodDeclaration>(predicate);
     elementBuilder.visitElementScoped(elem, () {
       for (final MethodDeclaration method in methods) {
         method.accept(elementBuilder);
@@ -638,8 +637,8 @@ class ResolverImpl extends Resolver {
   void resolveFields(InterfaceElement elem) {
     final ElementBuilder elementBuilder = ElementBuilder(this, elem.library);
     final InterfaceElementImpl interfaceElem = elem as InterfaceElementImpl;
-    final NamedCompilationUnitMember namedUnit = interfaceElem.compilationUnit;
-    final Iterable<FieldDeclaration> fields = namedUnit.childEntities.whereType<FieldDeclaration>();
+    final interfaceUnit = interfaceElem.compilationUnit;
+    final Iterable<FieldDeclaration> fields = interfaceUnit.bodyMembers.whereType<FieldDeclaration>();
     elementBuilder.visitElementScoped(interfaceElem, () {
       for (final FieldDeclaration field in fields) {
         field.accept(elementBuilder);
@@ -651,8 +650,8 @@ class ResolverImpl extends Resolver {
   void resolveConstructors(InterfaceElement elem) {
     final ElementBuilder elementBuilder = ElementBuilder(this, elem.library);
     final InterfaceElementImpl interfaceElem = elem as InterfaceElementImpl;
-    final NamedCompilationUnitMember namedUnit = interfaceElem.compilationUnit;
-    final Iterable<ConstructorDeclaration> constructors = namedUnit.childEntities.whereType<ConstructorDeclaration>();
+    final interfaceUnit = interfaceElem.compilationUnit;
+    final Iterable<ConstructorDeclaration> constructors = interfaceUnit.bodyMembers.whereType<ConstructorDeclaration>();
     if (constructors.isEmpty && elem is ClassElementImpl) {
       // If no constructors are defined, add a default constructor
       final defaultConstructor = ConstructorElementImpl(
@@ -751,15 +750,19 @@ class ResolverImpl extends Resolver {
   /// @param library The library to resolve classes for
   /// @param predicate Optional filter for which classes to resolve
   /// {@endtemplate}
-  void resolveClasses(LibraryElementImpl library, {ElementPredicate<NamedCompilationUnitMember>? predicate}) {
+  void resolveClasses(LibraryElementImpl library, {ElementPredicate<String>? predicate}) {
     final CompilationUnit unit = library.compilationUnit;
     final ElementBuilder visitor = ElementBuilder(this, library);
-    for (final ClassDeclaration classDeclaration in unit.declarations.filterAs<ClassDeclaration>(predicate)) {
+    for (final ClassDeclaration classDeclaration in unit.declarations.filterAs<ClassDeclaration>(
+      predicate == null ? null : (c) => predicate(c.namePart.typeName.lexeme),
+    )) {
       classDeclaration.accept(visitor);
     }
 
     /// class type alias are treated as classes
-    for (final ClassTypeAlias classTypeAlias in unit.declarations.filterAs<ClassTypeAlias>(predicate)) {
+    for (final ClassTypeAlias classTypeAlias in unit.declarations.filterAs<ClassTypeAlias>(
+      predicate == null ? null : (c) => predicate(c.name.lexeme),
+    )) {
       classTypeAlias.accept(visitor);
     }
   }

@@ -23,24 +23,23 @@ environment:
 # Add regular dependencies here.
 dependencies:
   _fe_analyzer_shared: ">=85.0.0 <95.0.0"
-  analyzer: ">=8.0.0 <10.0.0"
+  analyzer: ">=9.0.0 <11.0.0"
   args: ^2.7.0
   xxh3: ^1.2.0
   path: ^1.9.1
   collection: ^1.18.0
   meta: ^1.16.0
   glob: ^2.1.3
-  # 1.2.0 is broken on macos
-  watcher: 1.1.4
-  dart_style: ^3.1.3
+  watcher: ^1.2.1
+  dart_style: ^3.1.5
   ansicolor: ^2.0.3
-  source_span: ^1.10.1
+  source_span: ^1.10.2
   stack_trace: ^1.12.1
   frontend_server_client: ^4.0.0
   yaml: ^3.1.3
   hotreloader: ^4.3.0
 
 dev_dependencies:
-  lints: ^6.0.0
+  lints: ^6.1.0
   test: ^1.25.15
-  coverage: ^1.10.0
+  coverage: ^1.15.0

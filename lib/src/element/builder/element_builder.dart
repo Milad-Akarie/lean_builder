@@ -9,6 +9,7 @@ import 'package:lean_builder/src/graph/scan_results.dart';
 import 'package:lean_builder/src/resolvers/constant/const_evaluator.dart';
 import 'package:lean_builder/src/resolvers/constant/constant.dart';
 import 'package:lean_builder/src/resolvers/resolver.dart';
+import 'package:lean_builder/src/resolvers/utils.dart';
 import 'package:lean_builder/src/type/type.dart';
 
 /// {@template element_builder}
@@ -47,18 +48,19 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
   @override
   void visitExtensionTypeDeclaration(ExtensionTypeDeclaration node) {
     final LibraryElementImpl library = currentLibrary();
-    if (library.hasElement(node.name.lexeme)) return;
+    final extensionName = node.primaryConstructor.typeName;
+    if (library.hasElement(extensionName.lexeme)) return;
     final ExtensionTypeImpl extensionTypeElement = ExtensionTypeImpl(
-      name: node.name.lexeme,
+      name: extensionName.lexeme,
       library: library,
       compilationUnit: node,
     );
     setCodeRange(extensionTypeElement, node);
-    extensionTypeElement.setNameRange(node.name.offset, node.name.length);
+    extensionTypeElement.setNameRange(extensionName.offset, extensionName.length);
     library.addElement(extensionTypeElement);
     visitElementScoped(extensionTypeElement, () {
       node.documentationComment?.accept(this);
-      node.typeParameters?.visitChildren(this);
+      node.primaryConstructor.typeParameters?.visitChildren(this);
       if (preResolveTopLevelMetadata) {
         node.metadata.accept(this);
         extensionTypeElement.didResolveMetadata = true;
@@ -248,9 +250,11 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
   @override
   void visitClassDeclaration(ClassDeclaration node) {
     final LibraryElementImpl library = currentLibrary();
-    if (library.hasElement(node.name.lexeme)) return;
+    final className = node.namePart.typeName;
+
+    if (library.hasElement(className.lexeme)) return;
     final ClassElementImpl classElement = ClassElementImpl(
-      name: node.name.lexeme,
+      name: className.lexeme,
       library: library,
       compilationUnit: node,
       hasAbstract: node.abstractKeyword != null,
@@ -263,10 +267,10 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
     );
     library.addElement(classElement);
     setCodeRange(classElement, node);
-    classElement.setNameRange(node.name.offset, node.name.length);
+    classElement.setNameRange(className.offset, className.length);
     visitElementScoped(classElement, () {
       node.documentationComment?.accept(this);
-      node.typeParameters?.visitChildren(this);
+      node.namePart.typeParameters?.visitChildren(this);
 
       if (preResolveTopLevelMetadata) {
         node.metadata.accept(this);
@@ -343,16 +347,17 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
   @override
   void visitEnumDeclaration(EnumDeclaration node) {
     final LibraryElementImpl library = currentLibrary();
-    if (library.hasElement(node.name.lexeme)) return;
+    final enumName = node.namePart.typeName;
+    if (library.hasElement(enumName.lexeme)) return;
 
     final EnumElementImpl enumElement = EnumElementImpl(
-      name: node.name.lexeme,
+      name: enumName.lexeme,
       library: library,
       compilationUnit: node,
     );
     library.addElement(enumElement);
     setCodeRange(enumElement, node);
-    enumElement.setNameRange(node.name.offset, node.name.length);
+    enumElement.setNameRange(enumName.offset, enumName.length);
     enumElement.thisType = InterfaceTypeImpl(
       enumElement.name,
       library.buildDeclarationRef(enumElement.name, ReferenceType.$enum),
@@ -362,8 +367,8 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
 
     visitElementScoped(enumElement, () {
       node.documentationComment?.accept(this);
-      node.typeParameters?.visitChildren(this);
-      node.constants.accept(this);
+      node.namePart.typeParameters?.visitChildren(this);
+      node.body.constants.accept(this);
       if (preResolveTopLevelMetadata) {
         node.metadata.accept(this);
         enumElement.didResolveMetadata = true;
@@ -412,7 +417,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
         );
         final EnumDeclaration enumNode = node.thisOrAncestorOfType<EnumDeclaration>()!;
         final SimpleIdentifier? constructorName = args.constructorSelector?.name;
-        final ConstructorDeclaration constructor = enumNode.members.whereType<ConstructorDeclaration>().firstWhere(
+        final ConstructorDeclaration constructor = enumNode.body.members.whereType<ConstructorDeclaration>().firstWhere(
           (ConstructorDeclaration e) => e.name?.lexeme == constructorName?.name,
           orElse: () => throw Exception('Could not find constructor'),
         );
@@ -616,7 +621,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
     final Identifier name = node.name;
     final IdentifierRef identifier = resolver.resolveIdentifier(
       currentElement.library,
-      <String>[
+      [
         if (name is SimpleIdentifier) name.name,
         if (name is PrefixedIdentifier) ...<String>[
           name.prefix.name,
@@ -624,23 +629,11 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
         ],
       ],
     );
-
-    final (
-      LibraryElementImpl lib,
-      AstNode targetNode,
-      DeclarationRef decRef,
-    ) = resolver.astNodeFor(
-      identifier,
-      currentElement.library,
-    );
-    final ConstantEvaluator constantEvaluator = ConstantEvaluator(
-      resolver,
-      lib,
-      this,
-    );
+    final (lib, targetNode, decRef) = resolver.astNodeFor(identifier, currentElement.library);
+    final constantEvaluator = ConstantEvaluator(resolver, lib, this);
     if (targetNode is ClassDeclaration || targetNode is ConstructorDeclaration) {
       final ClassDeclaration classDeclaration = targetNode.thisOrAncestorOfType<ClassDeclaration>()!;
-      final String className = classDeclaration.name.lexeme;
+      final String className = classDeclaration.namePart.typeName.lexeme;
       final List<DartType> typeArgs = <DartType>[];
       for (final TypeAnnotation typeArg in <TypeAnnotation>[
         ...?node.typeArguments?.arguments,
@@ -661,7 +654,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
           if (targetNode is ConstructorDeclaration) {
             constructor = targetNode;
           } else {
-            constructor = classDeclaration.members.whereType<ConstructorDeclaration>().firstWhere(
+            constructor = classDeclaration.body.childEntities.whereType<ConstructorDeclaration>().firstWhere(
               (ConstructorDeclaration e) => e.name?.lexeme == node.constructorName?.name,
               orElse: () => throw Exception('Could not find constructor'),
             );
@@ -851,9 +844,11 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
       library,
     );
 
-    final ConstructorDeclaration constructorNode = clazzNode.members.whereType<ConstructorDeclaration>().firstWhere(
-      (ConstructorDeclaration e) => (e.name?.lexeme ?? '') == constructorName,
-    );
+    final ConstructorDeclaration constructorNode = clazzNode.body.childEntities
+        .whereType<ConstructorDeclaration>()
+        .firstWhere(
+          (ConstructorDeclaration e) => (e.name?.lexeme ?? '') == constructorName,
+        );
 
     final FormalParameter targetParam;
     final NodeList<FormalParameter> ancestorParams = constructorNode.parameters.parameters;
@@ -883,7 +878,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
         compilationUnit: clazzNode,
       );
       visitElementScoped(typeParamsCollector, () {
-        clazzNode.typeParameters?.visitChildren(this);
+        clazzNode.namePart.typeParameters?.visitChildren(this);
       });
       return typeParamsCollector;
     }
@@ -893,7 +888,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
       LibraryElementImpl lib,
     ) {
       if (param is FieldFormalParameter) {
-        final FieldDeclaration field = clazzNode.members.whereType<FieldDeclaration>().firstWhere(
+        final FieldDeclaration field = clazzNode.body.childEntities.whereType<FieldDeclaration>().firstWhere(
           (FieldDeclaration e) => e.fields.variables.any(
             (VariableDeclaration v) => v.name.lexeme == param.name.lexeme,
           ),
@@ -1137,8 +1132,8 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
     setCodeRange(constructorElement, node);
     Token? nameNode = node.name;
     if (nameNode == null) {
-      final Token parentName = node.thisOrAncestorOfType<NamedCompilationUnitMember>()!.name;
-      constructorElement.setNameRange(node.offset, parentName.length);
+      final Token? parentName = node.findParentInterface()?.name;
+      constructorElement.setNameRange(node.offset, parentName?.length ?? 0);
     } else {
       constructorElement.setNameRange(nameNode.offset, nameNode.length);
     }

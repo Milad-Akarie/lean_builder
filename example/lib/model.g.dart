@@ -16,3 +16,4 @@ Person _$PersonFromJson(Map<String, dynamic> json) => Person(
 
 Address _$AddressFromJson(Map<String, dynamic> json) =>
     Address(json['street'] as String, json['city'] as String);
+

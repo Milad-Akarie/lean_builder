@@ -45,7 +45,7 @@ String generateBuildScript(List<BuilderDefinitionEntry> entries) {
     }) {
       final String? importPrefix = importPrefixes[reg.import];
       typeRegMap[<String>[
-            if (importPrefix != null) importPrefix,
+            ?importPrefix,
             reg.name,
           ].join('.')] =
           reg.srcId;

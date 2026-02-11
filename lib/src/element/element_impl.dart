@@ -283,7 +283,7 @@ class LibraryElementImpl extends ElementImpl implements LibraryElement {
     if (_didResolveAllClasses || hasElement(name)) {
       return _elementsOfType<ClassElementImpl>().firstWhereOrNull((ClassElementImpl e) => e.name == name);
     }
-    resolver.resolveClasses(this, predicate: (NamedCompilationUnitMember e) => e.name.lexeme == name);
+    resolver.resolveClasses(this, predicate: (String name) => name == name);
     return _elementsOfType<ClassElementImpl>().firstWhereOrNull((ClassElementImpl e) => e.name == name);
   }
 
@@ -306,7 +306,7 @@ class LibraryElementImpl extends ElementImpl implements LibraryElement {
     if (_didResolveAllEnums || hasElement(name)) {
       return _elementsOfType<EnumElementImpl>().firstWhereOrNull((EnumElementImpl e) => e.name == name);
     }
-    resolver.resolveEnums(this, predicate: (EnumDeclaration e) => e.name.lexeme == name);
+    resolver.resolveEnums(this, predicate: (EnumDeclaration e) => e.namePart.typeName.lexeme == name);
     return _elementsOfType<EnumElementImpl>().firstWhereOrNull((EnumElementImpl e) => e.name == name);
   }
 
@@ -443,7 +443,7 @@ class InterfaceElementImpl extends ElementImpl with TypeParameterizedElementMixi
   final List<ConstructorElement> _constructors = <ConstructorElement>[];
 
   /// The AST node representing the compilation unit of this element.
-  final NamedCompilationUnitMember compilationUnit;
+  final AstNode compilationUnit;
 
   bool _didResolveMethods = false;
   bool _didResolveFields = false;

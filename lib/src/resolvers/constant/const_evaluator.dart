@@ -13,6 +13,7 @@ import 'package:lean_builder/src/graph/scan_results.dart';
 import 'package:lean_builder/src/resolvers/resolver.dart';
 import 'package:collection/collection.dart' show IterableExtension;
 import 'package:lean_builder/src/resolvers/source_based_cache.dart';
+import 'package:lean_builder/src/resolvers/utils.dart';
 import 'package:lean_builder/src/type/type.dart';
 
 import 'constant.dart';
@@ -83,11 +84,13 @@ class ConstantEvaluator extends GeneralizingAstVisitor<Constant> with ElementSta
       });
     }
 
-    final NamedCompilationUnitMember interfaceDec = node.parent as NamedCompilationUnitMember;
+    final interfaceDec = node.parent?.parent;
     assert(interfaceDec is ClassDeclaration || interfaceDec is EnumDeclaration);
     ConstObjectImpl? superConstObj;
     final NodeList<ConstructorInitializer> initializers = node.initializers;
+    String interfaceName = '';
     if (interfaceDec is ClassDeclaration) {
+      interfaceName = interfaceDec.namePart.typeName.lexeme;
       final NamedType? superClass = interfaceDec.extendsClause?.superclass;
       if (superClass != null) {
         final Iterable<SuperConstructorInvocation> superConstInvocations = initializers
@@ -102,7 +105,8 @@ class ConstantEvaluator extends GeneralizingAstVisitor<Constant> with ElementSta
           _library,
         );
         visitElementScoped(superLib, () {
-          final Iterable<ConstructorDeclaration> constructors = superNode.members.whereType<ConstructorDeclaration>();
+          final Iterable<ConstructorDeclaration> constructors = superNode.body.childEntities
+              .whereType<ConstructorDeclaration>();
           final ConstructorDeclaration superConstructor = constructors
               .where(
                 (ConstructorDeclaration c) => c.name?.lexeme == superConstName,
@@ -111,9 +115,11 @@ class ConstantEvaluator extends GeneralizingAstVisitor<Constant> with ElementSta
           superConstObj = evaluate(superConstructor) as ConstObjectImpl?;
         });
       }
+    } else if (interfaceDec is EnumDeclaration) {
+      interfaceName = interfaceDec.namePart.typeName.lexeme;
     }
 
-    final Iterable<FieldDeclaration> fields = interfaceDec.childEntities.whereType<FieldDeclaration>();
+    final Iterable<FieldDeclaration> fields = interfaceDec?.bodyMembers.whereType<FieldDeclaration>() ?? [];
     final NodeList<FormalParameter> params = node.parameters.parameters;
     final Map<String, Constant?> values = <String, Constant?>{};
     final Map<int, String> positionalNames = <int, String>{};
@@ -155,7 +161,6 @@ class ConstantEvaluator extends GeneralizingAstVisitor<Constant> with ElementSta
       }
     }
 
-    final String interfaceName = interfaceDec.name.lexeme;
     final InterfaceTypeImpl type = InterfaceTypeImpl(
       interfaceName,
       _library.buildDeclarationRef(interfaceName, ReferenceType.$class),
@@ -502,10 +507,10 @@ class ConstantEvaluator extends GeneralizingAstVisitor<Constant> with ElementSta
 
   @override
   Constant? visitSimpleIdentifier(SimpleIdentifier node) {
-    final NamedCompilationUnitMember? namedUnit = node.thisOrAncestorOfType<NamedCompilationUnitMember>();
+    final interface = node.findParentInterface();
     String? prefix;
-    if (namedUnit != null) {
-      bool isMember = namedUnit.childEntities.whereType<ClassMember>().any((
+    if (interface != null) {
+      bool isMember = interface.node.bodyMembers.whereType<ClassMember>().any((
         ClassMember m,
       ) {
         if (m is MethodDeclaration) {
@@ -518,7 +523,7 @@ class ConstantEvaluator extends GeneralizingAstVisitor<Constant> with ElementSta
         return false;
       });
       if (isMember) {
-        prefix = namedUnit.name.lexeme;
+        prefix = interface.name?.lexeme;
       }
     }
     return _getConstantValue(
@@ -605,13 +610,6 @@ class ConstantEvaluator extends GeneralizingAstVisitor<Constant> with ElementSta
           'Function ${node.name.lexeme} not found in ${lib.src.uri}',
         );
       }
-    } else if (node is NamedCompilationUnitMember) {
-      final InterfaceTypeImpl type = InterfaceTypeImpl(
-        node.name.lexeme,
-        loc,
-        _resolver,
-      );
-      return ConstType(type);
     } else if (node is MethodDeclaration) {
       assert(
         node.isStatic,
@@ -619,9 +617,14 @@ class ConstantEvaluator extends GeneralizingAstVisitor<Constant> with ElementSta
       );
 
       final MethodElement? method = _elementBuilder.visitElementScoped(lib, () {
-        final NamedCompilationUnitMember parent = node.parent as NamedCompilationUnitMember;
-        parent.accept(_elementBuilder);
-        final Element? interfaceElement = lib.getElement(parent.name.lexeme);
+        final parent = node.parent?.findParentInterface();
+        if (parent == null) {
+          throw Exception(
+            'Method ${node.name.lexeme} should have a parent interface',
+          );
+        }
+        parent.node.accept(_elementBuilder);
+        final Element? interfaceElement = lib.getElement(parent.name?.lexeme ?? '');
         if (interfaceElement is! InterfaceElement) {
           throw Exception(
             'Expected InterfaceElement, but got ${interfaceElement.runtimeType}',
@@ -647,12 +650,12 @@ class ConstantEvaluator extends GeneralizingAstVisitor<Constant> with ElementSta
       );
     } else if (node is EnumConstantDeclaration) {
       final String name = node.name.lexeme;
-      final EnumDeclaration enumDeclaration = node.parent as EnumDeclaration;
-      final int index = enumDeclaration.constants.indexWhere(
+      final EnumDeclaration enumDeclaration = node.parent?.parent as EnumDeclaration;
+      final int index = enumDeclaration.body.constants.indexWhere(
         (EnumConstantDeclaration e) => e.name.lexeme == name,
       );
       final InterfaceTypeImpl enumType = InterfaceTypeImpl(
-        enumDeclaration.name.lexeme,
+        enumDeclaration.namePart.typeName.lexeme,
         loc,
         _resolver,
       );
@@ -674,6 +677,16 @@ class ConstantEvaluator extends GeneralizingAstVisitor<Constant> with ElementSta
         if (resolved != null && !identical(resolved, Constant.invalid)) {
           return resolved;
         }
+      }
+    } else {
+      final interface = node.findParentInterface();
+      if (interface?.name case final name?) {
+        final InterfaceTypeImpl type = InterfaceTypeImpl(
+          name.lexeme,
+          loc,
+          _resolver,
+        );
+        return ConstType(type);
       }
     }
     return Constant.invalid;

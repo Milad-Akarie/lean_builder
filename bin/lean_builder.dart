@@ -30,17 +30,27 @@ void main(List<String> args) async {
     await compileKernel(Uri.decodeComponent(preBuildScriptUri.path), preBuildScriptKernelPath);
   }
   final messagePort = ReceivePort();
-  await Isolate.spawnUri(Uri.file(preBuildScriptKernelPath), args, messagePort.sendPort, errorsAreFatal: true);
-  final exitCode = await messagePort.first as int;
 
-  if (exitCode == 2) {
-    if (!isWatchMode && !isDevMode) {
-      Logger.info('No Assets to process. Exiting.');
-      exit(0);
+  try {
+    await Isolate.spawnUri(Uri.file(preBuildScriptKernelPath), args, messagePort.sendPort, errorsAreFatal: true);
+    final exitCode = await messagePort.first as int;
+    if (exitCode == 2) {
+      if (!isWatchMode && !isDevMode) {
+        Logger.info('No Assets to process. Exiting.');
+        exit(0);
+      }
+    } else if (exitCode != 0) {
+      Logger.error('Process exited with code $exitCode');
+      exit(exitCode);
     }
-  } else if (exitCode != 0) {
-    Logger.error('Process exited with code $exitCode');
-    exit(exitCode);
+  } catch (e, stack) {
+    Logger.error(
+      'Error running pre-build script: $e\ntry running `dart run lean_builder clean` then rebuilding',
+      stackTrace: stack,
+    );
+    exit(1);
+  } finally {
+    messagePort.close();
   }
 
   final String scriptAbsPath = p.join(p.current, paths.buildScriptOutput);
