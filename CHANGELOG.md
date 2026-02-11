@@ -1,3 +1,7 @@
+## 0.1.7
+- Chore: change analyzer constrans to support 10.0.0 and fix depericatons
+- Chore: bump watcher version to 1.2.1
+
 ## 0.1.6
 - Chore: Add test helpers for lean_builder package
 - fix: revert to using watcher 1.1.4 because 1.2 is broken on macos

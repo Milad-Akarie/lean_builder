@@ -21,7 +21,7 @@ void main() {
     test('should cache multiple values for same source', () {
       cache.cache('source1', 'target1', 'value1');
       cache.cache('source1', 'target2', 'value2');
-      
+
       expect(cache.get('source1', 'target1'), equals('value1'));
       expect(cache.get('source1', 'target2'), equals('value2'));
     });
@@ -29,7 +29,7 @@ void main() {
     test('should cache values for different sources', () {
       cache.cache('source1', 'target1', 'value1');
       cache.cache('source2', 'target1', 'value2');
-      
+
       expect(cache.get('source1', 'target1'), equals('value1'));
       expect(cache.get('source2', 'target1'), equals('value2'));
     });
@@ -61,7 +61,7 @@ void main() {
     test('should put if absent when value does not exist', () {
       final key = CompoundKey('source1', 'target1');
       final result = cache.putIfAbsent(key, () => 'value1');
-      
+
       expect(result, equals('value1'));
       expect(cache[key], equals('value1'));
     });
@@ -69,9 +69,9 @@ void main() {
     test('should not replace existing value with putIfAbsent', () {
       final key = CompoundKey('source1', 'target1');
       cache[key] = 'value1';
-      
+
       final result = cache.putIfAbsent(key, () => 'value2');
-      
+
       expect(result, equals('value1'));
       expect(cache[key], equals('value1'));
     });
@@ -79,7 +79,7 @@ void main() {
     test('should remove value by compound key', () {
       final key = CompoundKey('source1', 'target1');
       cache[key] = 'value1';
-      
+
       expect(cache[key], equals('value1'));
       cache.remove(key);
       expect(cache[key], isNull);
@@ -93,14 +93,14 @@ void main() {
     test('should remove source entry when last target is removed', () {
       final key1 = CompoundKey('source1', 'target1');
       final key2 = CompoundKey('source1', 'target2');
-      
+
       cache[key1] = 'value1';
       cache[key2] = 'value2';
-      
+
       cache.remove(key1);
       expect(cache[key1], isNull);
       expect(cache[key2], equals('value2'));
-      
+
       cache.remove(key2);
       expect(cache[key2], isNull);
     });
@@ -108,9 +108,9 @@ void main() {
     test('should clear all values', () {
       cache.cache('source1', 'target1', 'value1');
       cache.cache('source2', 'target2', 'value2');
-      
+
       cache.clear();
-      
+
       expect(cache.get('source1', 'target1'), isNull);
       expect(cache.get('source2', 'target2'), isNull);
     });
@@ -119,9 +119,9 @@ void main() {
       cache.cache('source1', 'target1', 'value1');
       cache.cache('source1', 'target2', 'value2');
       cache.cache('source2', 'target1', 'value3');
-      
+
       cache.invalidateForSource('source1');
-      
+
       expect(cache.get('source1', 'target1'), isNull);
       expect(cache.get('source1', 'target2'), isNull);
       expect(cache.get('source2', 'target1'), equals('value3'));
@@ -144,7 +144,7 @@ void main() {
     test('should implement equality correctly', () {
       final key1 = CompoundKey('source1', 'target1');
       final key2 = CompoundKey('source1', 'target1');
-      
+
       expect(key1, equals(key2));
       expect(key1.hashCode, equals(key2.hashCode));
     });
@@ -152,14 +152,14 @@ void main() {
     test('should not be equal with different source', () {
       final key1 = CompoundKey('source1', 'target1');
       final key2 = CompoundKey('source2', 'target1');
-      
+
       expect(key1, isNot(equals(key2)));
     });
 
     test('should not be equal with different target', () {
       final key1 = CompoundKey('source1', 'target1');
       final key2 = CompoundKey('source1', 'target2');
-      
+
       expect(key1, isNot(equals(key2)));
     });
 

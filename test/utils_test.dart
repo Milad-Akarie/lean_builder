@@ -26,14 +26,16 @@ void main() {
       expect(rootPackagePubspec['name'], isNotNull);
       expect(rootPackagePubspec['description'], isNotNull);
       // Most packages have dependencies
-      expect(rootPackagePubspec.containsKey('dependencies') || 
-             rootPackagePubspec.containsKey('dev_dependencies'), isTrue);
+      expect(
+        rootPackagePubspec.containsKey('dependencies') || rootPackagePubspec.containsKey('dev_dependencies'),
+        isTrue,
+      );
     });
 
     test('should have valid structure', () {
       // Verify it's a valid YAML map
       expect(rootPackagePubspec, isA<YamlMap>());
-      
+
       // Check that name is a string
       final name = rootPackagePubspec['name'];
       expect(name, isA<String>());
@@ -57,7 +59,7 @@ void main() {
       // This is a meta-test that verifies the function works
       // The actual content depends on the pubspec.yaml
       expect(pathHostedPackages, isA<Set<String>>());
-      
+
       // If there are path dependencies, they should be strings
       if (pathHostedPackages.isNotEmpty) {
         for (final pkg in pathHostedPackages) {
@@ -91,10 +93,10 @@ void main() {
     test('package name from pubspec should match rootPackageName', () {
       final pubspecFile = File('pubspec.yaml');
       expect(pubspecFile.existsSync(), isTrue);
-      
+
       final content = pubspecFile.readAsStringSync();
       final yaml = loadYaml(content) as YamlMap;
-      
+
       expect(yaml['name'], equals(rootPackageName));
     });
 
