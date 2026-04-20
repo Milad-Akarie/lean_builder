@@ -1,3 +1,6 @@
+## 0.1.8
+- Chore: update analyzer and _fe_analyzer_shared version constraints
+
 ## 0.1.7
 - Chore: change analyzer constrans to support 10.0.0 and fix depericatons
 - Chore: bump watcher version to 1.2.1
