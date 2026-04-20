@@ -1,3 +1,5 @@
+## 0.1.9
+- FIX: fix a compatibility issue with analyzer 12.0.0
 ## 0.1.8
 - Chore: update analyzer and _fe_analyzer_shared version constraints
 
