@@ -155,7 +155,7 @@ class DirectivesBuilder extends ElementBuilder {
 
   @override
   void visitLibraryDirective(LibraryDirective node) {
-    final String? name = node.name?.name;
+    final String? name = node.name?.tokens.map((t) => t.lexeme).join();
     if (name == null) return;
     final LibraryElementImpl library = currentLibrary();
     final List<dynamic>? asset = resolver.graph.assets[library.src.id];
