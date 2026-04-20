@@ -1,6 +1,6 @@
 name: lean_builder
 description: A streamlined Dart build system that applies lean principles to minimize waste and maximize speed. Designed for developers who value efficiency and performance.
-version: 0.1.9
+version: 0.1.10
 repository: https://github.com/Milad-Akarie/lean_builder
 platforms:
   macos:
@@ -21,7 +21,7 @@ environment:
   sdk: ^3.8.0
 
 dependencies:
-  _fe_analyzer_shared: ">=95.0.0 <99.0.0"
+  _fe_analyzer_shared: ">=93.0.0 <99.0.0"
   analyzer: ">=10.0.0 <13.0.0"
   args: ^2.7.0
   xxh3: ^1.2.0
