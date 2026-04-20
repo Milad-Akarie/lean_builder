@@ -149,7 +149,7 @@ void main() {
       final PartOfElement? directive = library.directives.whereType<PartOfElement>().firstOrNull;
       expect(directive, isNotNull);
       expect(directive!.stringUri, 'foo.dart');
-      expect(directive!.referencesLibraryDirective, isTrue);
+      expect(directive.referencesLibraryDirective, isTrue);
     });
   });
 }
