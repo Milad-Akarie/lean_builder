@@ -235,7 +235,7 @@ void main() {
       final LibraryElement library = resolver!.resolveLibrary(asset);
       final ImportElement? directive = library.directives.whereType<ImportElement>().firstOrNull;
       expect(directive!.uri, isNotNull);
-      expect(directive!.uri.toString(), contains('util.dart'));
+      expect(directive.uri.toString(), contains('util.dart'));
     });
 
     test('should have valid srcId', () {
