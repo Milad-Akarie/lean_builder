@@ -1,5 +1,8 @@
+## 0.1.11
+- Chore: update to analyzer 13.x and compatible _fe_analyzer_shared versions
+
 ## 0.1.10
-- Chore: allow fe_analyzer_shared 93.0.0 
+- Chore: allow fe_analyzer_shared 93.0.0
 ## 0.1.9
 - FIX: fix a compatibility issue with analyzer 12.0.0
 ## 0.1.8
