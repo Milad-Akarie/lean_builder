@@ -715,22 +715,25 @@ class ConstObjectImpl extends ConstObject {
   /// @param args The argument list from the constructor call
   /// @param evaluator The constant evaluator to evaluate arguments
   /// @param name The constructor name (optional)
+  /// @param argNameToPropName Mapping from visible argument names to actual property/field names
   /// @return A new constant object with arguments applied
   ConstObjectImpl construct(
     ArgumentList args,
     ConstantEvaluator evaluator, [
     String? name,
+    Map<String, String> argNameToPropName = const {},
   ]) {
     final Map<String, Constant?> props = Map<String, Constant?>.of(this.props);
     for (int i = 0; i < args.arguments.length; i++) {
       final Expression arg = args.arguments[i];
       if (arg is NamedExpression) {
-        final String name = arg.name.label.name;
-        props[name] = evaluator.evaluate(arg.expression);
+        final String argName = arg.name.label.name;
+        final String propName = argNameToPropName[argName] ?? argName;
+        props[propName] = evaluator.evaluate(arg.expression);
       } else {
-        final String? name = positionalNames[i];
-        if (name != null) {
-          props[name] = evaluator.evaluate(arg);
+        final String? propName = positionalNames[i];
+        if (propName != null) {
+          props[propName] = evaluator.evaluate(arg);
         }
       }
     }

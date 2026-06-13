@@ -792,7 +792,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
     node.parameter.accept(this);
     final ExecutableElementImpl executableElement = currentElementAs<ExecutableElementImpl>();
     final ParameterElementImpl? param =
-        executableElement.getParameter(node.name?.lexeme ?? '') as ParameterElementImpl?;
+        executableElement.getParameter(_visibleParameterName(node.parameter)) as ParameterElementImpl?;
     if (param != null && node.defaultValue != null) {
       param.initializer = node.defaultValue;
       param.setConstantComputeValue(() {
@@ -808,7 +808,8 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
 
   @override
   void visitFieldFormalParameter(FieldFormalParameter node) {
-    final String name = node.name.lexeme;
+    final String fieldName = node.name.lexeme;
+    final String name = _visibleParameterName(node);
     final ConstructorElementImpl constructorEle = currentElementAs<ConstructorElementImpl>();
     if (constructorEle.getParameter(name) != null) {
       return;
@@ -817,7 +818,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
     final List<FieldElement> fields = interfaceElement.fields;
     final DartType thisType = fields
         .firstWhere(
-          (FieldElement e) => e.name == name,
+          (FieldElement e) => e.name == fieldName,
           orElse: () => throw Exception('Could not link this type'),
         )
         .type;
@@ -969,7 +970,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
     bool isSuperFormal = false,
     DartType? type,
   }) {
-    final String name = node.name?.lexeme ?? '';
+    final String name = _visibleParameterName(node);
 
     if (type == null && node is SimpleFormalParameter) {
       type = resolveTypeRef((node.type), executableElement);
@@ -1007,6 +1008,15 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
       parameterElement.setNameRange(nameToken.offset, nameToken.length);
     }
     return parameterElement;
+  }
+
+  String _visibleParameterName(FormalParameter node) {
+    final FormalParameter target = node is DefaultFormalParameter ? node.parameter : node;
+    final String name = target.name?.lexeme ?? '';
+    if (target is FieldFormalParameter && target.isNamed && name.startsWith('_')) {
+      return name.substring(1);
+    }
+    return name;
   }
 
   @override

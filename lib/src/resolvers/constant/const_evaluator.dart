@@ -408,6 +408,75 @@ class ConstantEvaluator extends GeneralizingAstVisitor<Constant> with ElementSta
   }
 
   @override
+  Constant? visitInstanceCreationExpression(InstanceCreationExpression node) {
+    final NamedType type = node.constructorName.type;
+    final String? constructorName = node.constructorName.name?.name;
+
+    final IdentifierRef identifierRef = _resolver.resolveIdentifier(_library, <String>[
+      if (type.importPrefix != null) type.importPrefix!.name.lexeme,
+      type.name.lexeme,
+    ]);
+
+    final (
+      LibraryElementImpl lib,
+      AstNode astNode,
+      DeclarationRef loc,
+    ) = _resolver.astNodeFor(
+      identifierRef,
+      _library,
+    );
+
+    ConstructorDeclaration? constructorNode;
+    if (astNode is ConstructorDeclaration) {
+      constructorNode = astNode;
+    } else if (astNode is ClassDeclaration) {
+      final constructors = astNode.body.childEntities.whereType<ConstructorDeclaration>();
+      constructorNode = constructors.firstWhere(
+        (ConstructorDeclaration c) => c.name?.lexeme == constructorName,
+        orElse: () => constructors.first,
+      );
+    } else if (astNode is EnumDeclaration) {
+      final constructors = astNode.body.childEntities.whereType<ConstructorDeclaration>();
+      constructorNode = constructors.firstWhere(
+        (ConstructorDeclaration c) => c.name?.lexeme == constructorName,
+        orElse: () => constructors.first,
+      );
+    }
+
+    if (constructorNode == null) {
+      return Constant.invalid;
+    }
+
+    final Constant? constant = visitElementScoped(lib, () {
+      return evaluate(constructorNode!);
+    });
+
+    if (constant is ConstObjectImpl) {
+      // Build mapping from visible argument names to actual field/property names
+      final Map<String, String> argNameToPropName = {};
+      for (final param in constructorNode.parameters.parameters) {
+        final FormalParameter target = param is DefaultFormalParameter ? param.parameter : param;
+        final String paramName = target.name?.lexeme ?? '';
+        String visibleName = paramName;
+        if (target is FieldFormalParameter && target.isNamed && paramName.startsWith('_')) {
+          visibleName = paramName.substring(1);
+        }
+        argNameToPropName[visibleName] = paramName;
+      }
+
+      return visitElementScoped(_library, () {
+        return constant.construct(
+          node.argumentList,
+          this,
+          constructorName,
+          argNameToPropName,
+        );
+      });
+    }
+    return Constant.invalid;
+  }
+
+  @override
   Constant? visitNode(AstNode node) => Constant.invalid;
 
   @override
