@@ -45,10 +45,32 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
     pushElement(rootLibrary);
   }
 
+  void _setParameterDefaultValue(
+    FormalParameter node,
+    ExecutableElementImpl executableElement,
+  ) {
+    final defaultValue = node.defaultClause?.value;
+    if (defaultValue == null) return;
+
+    final name = node.name?.lexeme ?? '';
+    final param = executableElement.getParameter(name) as ParameterElementImpl?;
+    if (param == null) return;
+
+    param.initializer = defaultValue;
+    param.setConstantComputeValue(() {
+      final constEvaluator = ConstantEvaluator(
+        resolver,
+        executableElement.library,
+        this,
+      );
+      return constEvaluator.evaluate(defaultValue);
+    });
+  }
+
   @override
   void visitExtensionTypeDeclaration(ExtensionTypeDeclaration node) {
     final LibraryElementImpl library = currentLibrary();
-    final extensionName = node.primaryConstructor.typeName;
+    final extensionName = node.namePart.typeName;
     if (library.hasElement(extensionName.lexeme)) return;
     final ExtensionTypeImpl extensionTypeElement = ExtensionTypeImpl(
       name: extensionName.lexeme,
@@ -60,7 +82,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
     library.addElement(extensionTypeElement);
     visitElementScoped(extensionTypeElement, () {
       node.documentationComment?.accept(this);
-      node.primaryConstructor.typeParameters?.visitChildren(this);
+      node.namePart.typeParameters?.visitChildren(this);
       if (preResolveTopLevelMetadata) {
         node.metadata.accept(this);
         extensionTypeElement.didResolveMetadata = true;
@@ -774,7 +796,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
   }
 
   @override
-  void visitSimpleFormalParameter(SimpleFormalParameter node) {
+  void visitRegularFormalParameter(RegularFormalParameter node) {
     final String name = node.name?.lexeme ?? '';
     final ExecutableElementImpl executableElement = currentElementAs<ExecutableElementImpl>();
     if (executableElement.getParameter(name) != null) {
@@ -828,6 +850,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
       type: thisType,
     );
     constructorEle.addParameter(parameterElement);
+    _setParameterDefaultValue(node, constructorEle);
   }
 
   (DartType, Expression?) _resolveSuperParam({
@@ -897,18 +920,14 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
         );
         return (
           resolveTypeRef(field.fields.type, getTypeParamsCollector()),
-          null,
+          param.defaultClause?.value,
         );
-      } else if (param is SimpleFormalParameter) {
-        return (resolveTypeRef(param.type, getTypeParamsCollector()), null);
-      } else if (param is DefaultFormalParameter) {
-        return (buildParam(param.parameter, lib).$1, param.defaultValue);
       } else if (param is SuperFormalParameter) {
         final SuperConstructorInvocation? superInvocation = constructorNode.initializers
             .whereType<SuperConstructorInvocation>()
             .singleOrNull;
         final NamedType superType = clazzNode.extendsClause!.superclass;
-        return _resolveSuperParam(
+        final (DartType superTypeRef, Expression? superDefaultValue) = _resolveSuperParam(
           ref: IdentifierRef(
             superType.name.lexeme,
             importPrefix: superType.importPrefix?.name.lexeme,
@@ -917,6 +936,9 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
           constructorName: superInvocation?.constructorName?.name ?? '',
           superParam: param,
         );
+        return (superTypeRef, param.defaultClause?.value ?? superDefaultValue);
+      } else if (param is RegularFormalParameter) {
+        return (resolveTypeRef(param.type, getTypeParamsCollector()), (param.defaultClause?.value));
       } else {
         throw Exception('Unknown parameter type: ${param.runtimeType}');
       }
@@ -962,6 +984,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
       });
     }
     constructorEle.addParameter(parameterElement);
+    _setParameterDefaultValue(node, constructorEle);
   }
 
   ParameterElementImpl _buildParameter(
@@ -972,8 +995,9 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
   }) {
     final String name = _visibleParameterName(node);
 
-    if (type == null && node is SimpleFormalParameter) {
-      type = resolveTypeRef((node.type), executableElement);
+    final TypeAnnotation? nodeType = node.type;
+    if (type == null && nodeType != null) {
+      type = resolveTypeRef(nodeType, executableElement);
     }
 
     final ParameterElementImpl parameterElement = ParameterElementImpl(
@@ -1068,7 +1092,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
       isStatic: node.isStatic,
       name: name,
       enclosingElement: interfaceElement,
-      isAbstract: node.isAbstract,
+      isAbstract: !node.isComplete,
       isAsynchronous: node.body.isAsynchronous,
       isExternal: node.externalKeyword != null,
       isGenerator: node.body.isGenerator,
@@ -1201,10 +1225,6 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
   /// Sets the code range for the given [element] based on the provided [node].
   void setCodeRange(ElementImpl element, AstNode node) {
     AstNode? parent = node.parent;
-    if (node is FormalParameter && parent is DefaultFormalParameter) {
-      node = parent;
-    }
-
     if (node is VariableDeclaration && parent is VariableDeclarationList) {
       AstNode? fieldDeclaration = parent.parent;
       if (fieldDeclaration != null && parent.variables.first == node) {
