@@ -105,8 +105,8 @@ class InterfaceTypeImpl extends TypeImpl implements InterfaceType {
     this.resolver, {
     super.isNullable = false,
     this.typeArguments = const <DartType>[],
-    InterfaceElement? element,
-  }) : _element = element;
+    this._element,
+  });
 
   String get _srcName => declarationRef.srcUri.toString();
 

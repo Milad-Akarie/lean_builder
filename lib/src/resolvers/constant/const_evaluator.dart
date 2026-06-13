@@ -455,10 +455,9 @@ class ConstantEvaluator extends GeneralizingAstVisitor<Constant> with ElementSta
       // Build mapping from visible argument names to actual field/property names
       final Map<String, String> argNameToPropName = {};
       for (final param in constructorNode.parameters.parameters) {
-        final FormalParameter target = param is DefaultFormalParameter ? param.parameter : param;
-        final String paramName = target.name?.lexeme ?? '';
+        final String paramName = param.name?.lexeme ?? '';
         String visibleName = paramName;
-        if (target is FieldFormalParameter && target.isNamed && paramName.startsWith('_')) {
+        if (param is FieldFormalParameter && param.isNamed && paramName.startsWith('_')) {
           visibleName = paramName.substring(1);
         }
         argNameToPropName[visibleName] = paramName;

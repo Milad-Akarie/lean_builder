@@ -657,8 +657,8 @@ abstract class VariableElementImpl extends ElementImpl implements VariableElemen
     required this.isFinal,
     required this.isLate,
     required this.isStatic,
-    DartType? type,
-  }) : _type = type;
+    this._type,
+  });
 
   @override
   final Element enclosingElement;

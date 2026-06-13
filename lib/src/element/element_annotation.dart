@@ -254,9 +254,9 @@ class ElementAnnotationImpl implements ElementAnnotation {
   ElementAnnotationImpl({
     required this.type,
     required this.annotatedElement,
-    required ConstantValueCompute constantValueCompute,
+    required this._constantValueCompute,
     required this.declarationRef,
-  }) : _constantValueCompute = constantValueCompute;
+  });
 
   /// Source name for this annotation, used to determine package.
   late final String _srcName = declarationRef.srcUri.toString();

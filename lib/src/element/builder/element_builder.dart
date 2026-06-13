@@ -70,7 +70,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
   @override
   void visitExtensionTypeDeclaration(ExtensionTypeDeclaration node) {
     final LibraryElementImpl library = currentLibrary();
-    final extensionName = node.namePart.typeName;
+    final extensionName = node.primaryConstructor.typeName;
     if (library.hasElement(extensionName.lexeme)) return;
     final ExtensionTypeImpl extensionTypeElement = ExtensionTypeImpl(
       name: extensionName.lexeme,
@@ -82,7 +82,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
     library.addElement(extensionTypeElement);
     visitElementScoped(extensionTypeElement, () {
       node.documentationComment?.accept(this);
-      node.namePart.typeParameters?.visitChildren(this);
+      node.primaryConstructor.typeParameters?.visitChildren(this);
       if (preResolveTopLevelMetadata) {
         node.metadata.accept(this);
         extensionTypeElement.didResolveMetadata = true;
@@ -807,26 +807,27 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
       executableElement,
     );
     executableElement.addParameter(parameterElement);
+    _setParameterDefaultValue(node, executableElement);
   }
 
-  @override
-  void visitDefaultFormalParameter(DefaultFormalParameter node) {
-    node.parameter.accept(this);
-    final ExecutableElementImpl executableElement = currentElementAs<ExecutableElementImpl>();
-    final ParameterElementImpl? param =
-        executableElement.getParameter(_visibleParameterName(node.parameter)) as ParameterElementImpl?;
-    if (param != null && node.defaultValue != null) {
-      param.initializer = node.defaultValue;
-      param.setConstantComputeValue(() {
-        final ConstantEvaluator constEvaluator = ConstantEvaluator(
-          resolver,
-          executableElement.library,
-          this,
-        );
-        return constEvaluator.evaluate(node.defaultValue!);
-      });
-    }
-  }
+  // @override
+  // void visitDefaultFormalParameter(DefaultFormalParameter node) {
+  //   node.parameter.accept(this);
+  //   final ExecutableElementImpl executableElement = currentElementAs<ExecutableElementImpl>();
+  //   final ParameterElementImpl? param =
+  //       executableElement.getParameter(_visibleParameterName(node.parameter)) as ParameterElementImpl?;
+  //   if (param != null && node.defaultValue != null) {
+  //     param.initializer = node.defaultValue;
+  //     param.setConstantComputeValue(() {
+  //       final ConstantEvaluator constEvaluator = ConstantEvaluator(
+  //         resolver,
+  //         executableElement.library,
+  //         this,
+  //       );
+  //       return constEvaluator.evaluate(node.defaultValue!);
+  //     });
+  //   }
+  // }
 
   @override
   void visitFieldFormalParameter(FieldFormalParameter node) {
@@ -1034,8 +1035,9 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
     return parameterElement;
   }
 
-  String _visibleParameterName(FormalParameter node) {
-    final FormalParameter target = node is DefaultFormalParameter ? node.parameter : node;
+
+
+  String _visibleParameterName(FormalParameter target) {
     final String name = target.name?.lexeme ?? '';
     if (target is FieldFormalParameter && target.isNamed && name.startsWith('_')) {
       return name.substring(1);
@@ -1092,7 +1094,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
       isStatic: node.isStatic,
       name: name,
       enclosingElement: interfaceElement,
-      isAbstract: !node.isComplete,
+      isAbstract: node.isAbstract,
       isAsynchronous: node.body.isAsynchronous,
       isExternal: node.externalKeyword != null,
       isGenerator: node.body.isGenerator,

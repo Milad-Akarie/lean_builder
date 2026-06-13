@@ -725,11 +725,9 @@ class ConstObjectImpl extends ConstObject {
   ]) {
     final Map<String, Constant?> props = Map<String, Constant?>.of(this.props);
     for (int i = 0; i < args.arguments.length; i++) {
-      final Expression arg = args.arguments[i];
-      if (arg is NamedExpression) {
-        final String argName = arg.name.label.name;
-        final String propName = argNameToPropName[argName] ?? argName;
-        props[propName] = evaluator.evaluate(arg.expression);
+      final Argument arg = args.arguments[i];
+      if (arg is NamedArgument) {
+        props[arg.name.lexeme] = evaluator.evaluate(arg.argumentExpression);
       } else {
         final String? name = positionalNames[i];
         if (name != null) {
