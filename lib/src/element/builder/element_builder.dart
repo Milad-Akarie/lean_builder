@@ -47,20 +47,15 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
 
   void _setParameterDefaultValue(
     FormalParameter node,
-    ExecutableElementImpl executableElement,
+    ParameterElementImpl param,
   ) {
     final defaultValue = node.defaultClause?.value;
     if (defaultValue == null) return;
-
-    final name = node.name?.lexeme ?? '';
-    final param = executableElement.getParameter(name) as ParameterElementImpl?;
-    if (param == null) return;
-
     param.initializer = defaultValue;
     param.setConstantComputeValue(() {
       final constEvaluator = ConstantEvaluator(
         resolver,
-        executableElement.library,
+        param.library,
         this,
       );
       return constEvaluator.evaluate(defaultValue);
@@ -802,12 +797,9 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
     if (executableElement.getParameter(name) != null) {
       return;
     }
-    final ParameterElementImpl parameterElement = _buildParameter(
-      node,
-      executableElement,
-    );
+    final parameterElement = _buildParameter(node, executableElement);
     executableElement.addParameter(parameterElement);
-    _setParameterDefaultValue(node, executableElement);
+    _setParameterDefaultValue(node, parameterElement);
   }
 
   // @override
@@ -851,7 +843,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
       type: thisType,
     );
     constructorEle.addParameter(parameterElement);
-    _setParameterDefaultValue(node, constructorEle);
+    _setParameterDefaultValue(node, parameterElement);
   }
 
   (DartType, Expression?) _resolveSuperParam({
@@ -985,7 +977,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
       });
     }
     constructorEle.addParameter(parameterElement);
-    _setParameterDefaultValue(node, constructorEle);
+    _setParameterDefaultValue(node, parameterElement);
   }
 
   ParameterElementImpl _buildParameter(
@@ -1035,11 +1027,9 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
     return parameterElement;
   }
 
-
-
   String _visibleParameterName(FormalParameter target) {
     final String name = target.name?.lexeme ?? '';
-    if (target is FieldFormalParameter && target.isNamed && name.startsWith('_')) {
+    if (target.isNamed && name.startsWith('_')) {
       return name.substring(1);
     }
     return name;
@@ -1156,7 +1146,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
       }
     }
 
-    final ConstructorElementImpl constructorElement = ConstructorElementImpl(
+    final  constructorElement = ConstructorElementImpl(
       name: constructorName,
       enclosingElement: interfaceElement,
       isConst: node.constKeyword != null,

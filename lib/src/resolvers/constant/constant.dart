@@ -727,11 +727,13 @@ class ConstObjectImpl extends ConstObject {
     for (int i = 0; i < args.arguments.length; i++) {
       final Argument arg = args.arguments[i];
       if (arg is NamedArgument) {
-        props[arg.name.lexeme] = evaluator.evaluate(arg.argumentExpression);
+        final String argName = arg.name.lexeme;
+        final String propName = argNameToPropName[argName] ?? argName;
+        props[propName] = evaluator.evaluate(arg.argumentExpression);
       } else {
-        final String? name = positionalNames[i];
-        if (name != null) {
-          props[name] = evaluator.evaluate(arg);
+        final String? propName = positionalNames[i];
+        if (propName != null) {
+          props[propName] = evaluator.evaluate(arg);
         }
       }
     }
