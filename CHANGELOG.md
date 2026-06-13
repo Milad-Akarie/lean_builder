@@ -1,3 +1,8 @@
+## 1.2.0
+- Feat: Support private named parameters in constructors.
+- Chore: Update `analyzer` and `_fe_analyzer_shared` dependency versions.
+- Chore: Set minimum Dart SDK version to 3.12.0.
+
 ## 0.1.11
 - Chore: update to analyzer 13.x and compatible _fe_analyzer_shared versions
 

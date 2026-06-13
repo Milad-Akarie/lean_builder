@@ -1146,7 +1146,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
       }
     }
 
-    final  constructorElement = ConstructorElementImpl(
+    final constructorElement = ConstructorElementImpl(
       name: constructorName,
       enclosingElement: interfaceElement,
       isConst: node.constKeyword != null,

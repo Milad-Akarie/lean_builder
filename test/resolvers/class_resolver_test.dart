@@ -295,24 +295,24 @@ void main() {
 
     scanner!.scan(asset);
     final LibraryElement library = resolver!.resolveLibrary(asset);
-    
+
     final ClassElementImpl? barClass = library.getClass('Bar');
     expect(barClass, isNotNull);
-    
+
     final barConstructor = barClass!.constructors.first;
-    
+
     // The parameter should be exposed as 'foo', not '_foo'
     final fooParam = barConstructor.getParameter('foo');
     expect(fooParam, isNotNull);
     expect(barConstructor.getParameter('_foo'), isNull);
-    
+
     // Verify the default value is a constant object
     final defaultValue = fooParam!.constantValue;
     expect(defaultValue, isA<ConstObject>());
-    
+
     final constObj = defaultValue as ConstObject;
     expect(constObj.type.name, 'Foo');
-    
+
     // The nested property should be accessible via the actual field name '_arg'
     final argValue = constObj.getString('_arg');
     expect(argValue, isNotNull);
@@ -335,22 +335,22 @@ void main() {
 
     scanner!.scan(asset);
     final LibraryElement library = resolver!.resolveLibrary(asset);
-    
+
     final ClassElementImpl? serviceClass = library.getClass('Service');
     expect(serviceClass, isNotNull);
-    
+
     final serviceConstructor = serviceClass!.constructors.first;
-    
+
     final configParam = serviceConstructor.getParameter('config');
     expect(configParam, isNotNull);
     expect(serviceConstructor.getParameter('_config'), isNull);
-    
+
     final defaultValue = configParam!.constantValue;
     expect(defaultValue, isA<ConstObject>());
-    
+
     final constObj = defaultValue as ConstObject;
     expect(constObj.type.name, 'Config');
-    
+
     // Properties should be keyed by actual field names
     expect(constObj.getInt('_timeout')?.value, 60);
     expect(constObj.getString('_url')?.value, 'https://api.example.com');
