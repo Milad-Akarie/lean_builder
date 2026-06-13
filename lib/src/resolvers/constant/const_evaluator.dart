@@ -156,8 +156,8 @@ class ConstantEvaluator extends GeneralizingAstVisitor<Constant> with ElementSta
       if (param.isPositional) {
         positionalNames[i] = param.name!.lexeme;
       }
-      if (param is DefaultFormalParameter && param.defaultValue != null) {
-        values[param.name!.lexeme] = param.defaultValue?.accept(this);
+      if (param.defaultClause?.value case final defaultValue?) {
+        values[param.name!.lexeme] = defaultValue.accept(this);
       }
     }
 

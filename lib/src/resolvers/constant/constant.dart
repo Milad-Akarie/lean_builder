@@ -1,4 +1,4 @@
-import 'package:analyzer/dart/ast/ast.dart' show Expression, ArgumentList, NamedExpression;
+import 'package:analyzer/dart/ast/ast.dart' show Expression, Argument, ArgumentList, NamedArgument;
 import 'package:collection/collection.dart' show ListEquality, MapEquality, SetEquality;
 import 'package:lean_builder/element.dart';
 import 'package:lean_builder/src/graph/declaration_ref.dart';
@@ -723,14 +723,13 @@ class ConstObjectImpl extends ConstObject {
   ]) {
     final Map<String, Constant?> props = Map<String, Constant?>.of(this.props);
     for (int i = 0; i < args.arguments.length; i++) {
-      final Expression arg = args.arguments[i];
-      if (arg is NamedExpression) {
-        final String name = arg.name.label.name;
-        props[name] = evaluator.evaluate(arg.expression);
+      final Argument arg = args.arguments[i];
+      if (arg is NamedArgument) {
+        props[arg.name.lexeme] = evaluator.evaluate(arg.argumentExpression);
       } else {
         final String? name = positionalNames[i];
         if (name != null) {
-          props[name] = evaluator.evaluate(arg);
+          props[name] = evaluator.evaluate(arg.argumentExpression);
         }
       }
     }
@@ -739,7 +738,7 @@ class ConstObjectImpl extends ConstObject {
       type,
       positionalNames: positionalNames,
       constructorName: name,
-      constructorArguments: List<Expression>.of(args.arguments),
+      constructorArguments: args.arguments.map((arg) => arg.argumentExpression).toList(),
     );
   }
 
