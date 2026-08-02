@@ -1,3 +1,9 @@
+## 1.2.1
+- Chore: Update `analyzer` to support versions 10.0.0 to 14.x and bump `_fe_analyzer_shared` to ^105.0.0.
+
+## 1.2.1
+- Chore: Update `analyzer` to support versions 10.0.0 to 14.x and bump `_fe_analyzer_shared` to ^105.0.0.
+
 ## 1.2.0
 - Feat: Support private named parameters in constructors.
 - Chore: Update `analyzer` and `_fe_analyzer_shared` dependency versions.
