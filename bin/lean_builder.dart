@@ -1,5 +1,5 @@
 import 'dart:io' show File, Directory, exit, Platform, Process, ProcessStartMode;
-import 'dart:isolate' show Isolate, ReceivePort;
+import 'dart:isolate' show Isolate, ReceivePort, IsolateSpawnException;
 
 import 'package:lean_builder/src/build_script/compile.dart';
 import 'package:lean_builder/src/build_script/paths.dart' as paths;
@@ -42,6 +42,23 @@ void main(List<String> args) async {
     } else if (exitCode != 0) {
       Logger.error('Process exited with code $exitCode');
       exit(exitCode);
+    }
+  } on IsolateSpawnException catch (_) {
+    // Check if we've already retried once to prevent infinite recursion
+    if (args.contains('--rebuild-retry')) {
+      Logger.error('Failed to spawn isolate after rebuild. Please try running `dart run lean_builder clean` manually.');
+      exit(1);
+    }
+    Logger.warning(
+      'Failed to spawn isolate for pre-build script, Rebuilding the pre-build script and trying again...',
+    );
+    final didClean = (await _clean()) == 0;
+    if (didClean) {
+      // Add flag to prevent infinite recursion
+      return main([...args, '--rebuild-retry']);
+    } else {
+      Logger.error('Failed to clean build artifacts. Please try running `dart run lean_builder clean` manually.');
+      exit(1);
     }
   } catch (e, stack) {
     Logger.error(

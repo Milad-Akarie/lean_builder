@@ -2,12 +2,13 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:lean_builder/builder.dart';
-import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 import 'package:xxh3/xxh3.dart';
 
-@visibleForTesting
 /// A simple in-memory implementation of [Asset] for testing purposes.
+/// This is only intended for use in tests and should not be used in production code.
+///
+/// it's not annotated with `@visibleForTesting` because it is used in the `lib/src/test/resolver.dart` file, which is not a test file.
 class StringAsset implements Asset {
   /// The package name used for test assets.
   static const String testPackageName = r'test_';

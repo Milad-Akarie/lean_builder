@@ -3,7 +3,7 @@ import 'package:lean_builder/src/graph/references_scanner.dart';
 import 'package:meta/meta.dart';
 
 /// Scans the Dart SDK and the specified [packages] using the given [scanner].
-@visibleForTesting
+@protected
 void scanDartSdkAndPackages(
   ReferencesScanner scanner, {
   Set<String> packages = const <String>{},

@@ -1,5 +1,10 @@
-## 1.2.1
-- Chore: Update `analyzer` to support versions 10.0.0 to 14.x and bump `_fe_analyzer_shared` to ^105.0.0.
+## 1.2.2
+- Feat: Add automatic recovery mechanism in `lean_builder.dart` to rebuild pre-build script and retry when isolate spawning fails.
+- Fix: Update extension type handling to use `namePart` instead of `primaryConstructor` for compatibility with latest analyzer.
+- Fix: Correct `isAbstract` property in method building to use `!node.isComplete` instead of `node.isAbstract`.
+- Chore: Add analyzer exclusions for build and platform-specific directories in `analysis_options.yaml`.
+- Chore: Update visibility annotations in test utilities for better API clarity.
+- Fix: Widen `_fe_analyzer_shared` bounds to `>=98.0.0 <106.0.0` and `dart_style` to `>=3.1.8 <4.0.0` to match the declared `analyzer` range.
 
 ## 1.2.1
 - Chore: Update `analyzer` to support versions 10.0.0 to 14.x and bump `_fe_analyzer_shared` to ^105.0.0.

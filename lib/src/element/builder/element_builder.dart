@@ -65,7 +65,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
   @override
   void visitExtensionTypeDeclaration(ExtensionTypeDeclaration node) {
     final LibraryElementImpl library = currentLibrary();
-    final extensionName = node.primaryConstructor.typeName;
+    final extensionName = node.namePart.typeName;
     if (library.hasElement(extensionName.lexeme)) return;
     final ExtensionTypeImpl extensionTypeElement = ExtensionTypeImpl(
       name: extensionName.lexeme,
@@ -77,7 +77,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
     library.addElement(extensionTypeElement);
     visitElementScoped(extensionTypeElement, () {
       node.documentationComment?.accept(this);
-      node.primaryConstructor.typeParameters?.visitChildren(this);
+      node.namePart.typeParameters?.visitChildren(this);
       if (preResolveTopLevelMetadata) {
         node.metadata.accept(this);
         extensionTypeElement.didResolveMetadata = true;
@@ -1084,7 +1084,7 @@ class ElementBuilder extends UnifyingAstVisitor<void> with ElementStack<void> {
       isStatic: node.isStatic,
       name: name,
       enclosingElement: interfaceElement,
-      isAbstract: node.isAbstract,
+      isAbstract: !node.isComplete,
       isAsynchronous: node.body.isAsynchronous,
       isExternal: node.externalKeyword != null,
       isGenerator: node.body.isGenerator,
